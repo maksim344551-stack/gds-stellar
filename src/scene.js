@@ -2,13 +2,12 @@ import * as THREE from 'three';
 import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
 import moonUrl from './assets/moon.jpg';
-import giantUrl from './assets/giant.jpg';
+import { makeMoon, makePlanets, makeNebula, makeStar, makeStars } from './cosmos.js';
 
+// p00..p09 планеты вкусов, p10 планета упаковки (порядок по имени файла)
 const PLANET_URLS = Object.entries(import.meta.glob('./assets/planets/p*.jpg', { eager: true, query: '?url', import: 'default' }))
   .sort(([a], [b]) => a.localeCompare(b))
   .map(([, url]) => url);
-import { makeGiant, makeMoon, makePlanets, makeNebula, makeStar, makeStars } from './cosmos.js';
-
 
 /** Студийное освещение: тёмная комната с софтбоксами. Хром получает чёткие, «предметные» блики. */
 function studioEnvironment(renderer) {
@@ -81,8 +80,6 @@ export async function createScene(canvas, { lowPower, light }) {
   rigCam.add(moon.group);
   const planets = makePlanets(PLANET_URLS, renderer);
   rigCam.add(planets.cur.mesh, planets.next.mesh);
-  const giant = makeGiant(giantUrl, renderer.capabilities.getMaxAnisotropy());
-  rigCam.add(giant.group);
   const star = makeStar();
   rigCam.add(star.group);
 
@@ -93,9 +90,20 @@ export async function createScene(canvas, { lowPower, light }) {
   let lightLevel = light ? 3 : 0; // 1 проще шейдеры, 2 меньше пикселей, 3 минимум
   let pendingLight = 0;
 
-  function size() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
+  // На телефоне адресная строка прячется и показывается при прокрутке, и innerHeight меняется на 50-100 px. Холст берёт «большую»
+  // высоту окна (100lvh): она при этом не меняется, поэтому буфер не пересоздаётся, и на прокрутке нет ни рывков, ни пустых кадров.
+  const probe = document.createElement('div');
+  probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:100lvh;visibility:hidden;pointer-events:none';
+  document.body.append(probe);
+  let viewW = 0;
+  let viewH = 0;
+  const readSize = () => ({ w: window.innerWidth, h: Math.max(probe.offsetHeight, window.innerHeight) });
+
+  function size(force = false) {
+    const { w, h } = readSize();
+    if (!force && w === viewW && h === viewH) return;
+    viewW = w;
+    viewH = h;
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -107,9 +115,9 @@ export async function createScene(canvas, { lowPower, light }) {
     moon.uniforms.uDetail.value = detail;
     star.uniforms.uDetail.value = detail;
   }
-  size();
+  size(true);
   applyDetail();
-  window.addEventListener('resize', size);
+  window.addEventListener('resize', () => size());
 
   const ORIGIN = new THREE.Vector3();
   const UP = new THREE.Vector3(0, 1, 0);
@@ -132,7 +140,7 @@ export async function createScene(canvas, { lowPower, light }) {
       // сначала упрощаем шейдеры (уровень 1), и лишь потом отдаём разрешение: чёткость банки важнее всего
       if (lightLevel === 2) pr = Math.max(1, Math.min(pr, dpr * 0.75));
       if (lightLevel >= 3) pr = 1;
-      size();
+      size(true);
       applyDetail();
     }
     const { time } = s;
@@ -179,7 +187,7 @@ export async function createScene(canvas, { lowPower, light }) {
     tmp.copy(starPos).sub(moon.group.position);
     if (tmp.lengthSq() > 1e-3) moon.uniforms.uLight.value.copy(tmp.normalize());
 
-    // Небесные тела в линейке вкусов: газовый гигант (индекс -1) и десять планет. Каждая смена, включая переход
+    // Небесные тела за банкой: планета упаковки (индекс 10) и десять планет вкусов (0..9); -1 значит «ничего» (первый экран с луной). Каждая смена, включая переход
     // от упаковки к первому вкусу, одна и та же: прежнее тело уходит вдаль и в сторону, следующее приближается
     // из глубины с противоположной стороны. Кривые у них разные, поэтому движение не зеркальное.
     const pl = s.planet;
@@ -200,21 +208,8 @@ export async function createScene(canvas, { lowPower, light }) {
     const fIn = sm(m, 0.15, 0.75);
     const fade = pl.alpha * (narrow ? 0.8 : 1);
 
-    giant.group.visible = false;
     const place = (id, slot, dx, dy, dz, rz, alpha) => {
-      if (id < 0) {
-        // гигант: свой путь по прокрутке (s.giant), поверх него то же смещение
-        const a = s.giant.a * alpha;
-        giant.group.visible = a > 0.004;
-        giant.group.position.set(s.giant.x + dx, s.giant.y + dy, s.giant.z + dz);
-        giant.group.rotation.z = rz;
-        giant.group.scale.setScalar(s.giant.s);
-        giant.mesh.rotation.y = time * 0.014;
-        giant.uniforms.uAlpha.value = a;
-        giant.uniforms.uRim.value.copy(s.moonRim);
-        slot.mesh.visible = false;
-        return;
-      }
+      if (id < 0) { slot.mesh.visible = false; return; } // -1: пустой этап (первый экран с луной)
       const a = fade * alpha;
       slot.mesh.visible = a > 0.004;
       if (!slot.mesh.visible) return;
@@ -247,8 +242,8 @@ export async function createScene(canvas, { lowPower, light }) {
     const a = jar.anchors[name];
     a.getWorldPosition(tmp);
     tmp.project(camera);
-    out.x = (tmp.x * 0.5 + 0.5) * window.innerWidth;
-    out.y = (-tmp.y * 0.5 + 0.5) * window.innerHeight;
+    out.x = (tmp.x * 0.5 + 0.5) * viewW;
+    out.y = (-tmp.y * 0.5 + 0.5) * viewH;
     return out;
   }
 

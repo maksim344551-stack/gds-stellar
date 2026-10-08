@@ -221,61 +221,6 @@ export function makeMoon(url, maxAniso = 8) {
   return { group, uniforms };
 }
 
-/* ── газовый гигант ───────────────────────────────────────────────── */
-
-// Фото облачных полос (src/assets/giant.jpg) сделано бесшовным по горизонтали и повторяется дважды по долготе:
-// так пропорции вихрей остаются естественными. Планета целиком вращается (в отличие от луны, снимок покрывает всю сферу).
-export function makeGiant(url, maxAniso = 8) {
-  const map = new THREE.TextureLoader().load(url);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.wrapS = THREE.RepeatWrapping;
-  map.anisotropy = maxAniso;
-  const uniforms = {
-    uMap: { value: map },
-    uAlpha: { value: 0 },
-    uRim: { value: new THREE.Color('#cdac62') },
-    uLight: { value: new THREE.Vector3(-0.55, 0.45, 0.7).normalize() },
-    uGain: { value: 0.72 },
-  };
-  const material = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    uniforms,
-    vertexShader: /* glsl */ `
-      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
-      void main(){
-        vUv = uv;
-        vN = normalize(normalMatrix * normal);
-        vec4 mv = modelViewMatrix * vec4(position, 1.);
-        vV = -mv.xyz;
-        gl_Position = projectionMatrix * mv;
-      }`,
-    fragmentShader: /* glsl */ `
-      uniform sampler2D uMap; uniform float uAlpha; uniform vec3 uRim; uniform vec3 uLight; uniform float uGain;
-      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
-      void main(){
-        vec3 tex = texture2D(uMap, vec2(vUv.x * 2., vUv.y)).rgb;
-        vec3 n = normalize(vN);
-        vec3 v = normalize(vV);
-        float ndv = max(dot(n, v), 0.);
-        float ndl = dot(n, uLight);
-        float lit = smoothstep(-.12, .75, ndl);
-        vec3 col = tex * (.05 + 1.15 * lit) * (.45 + .55 * pow(ndv, .45));
-        col += uRim * pow(1. - ndv, 3.2) * (.05 + .8 * smoothstep(-.1, .8, ndl));
-        gl_FragColor = vec4(col * uGain, uAlpha);
-        ${OUT}
-      }`,
-  });
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), material);
-  mesh.frustumCulled = false;
-  const group = new THREE.Group();
-  const tilt = new THREE.Group();
-  tilt.rotation.z = 0.2;
-  tilt.add(mesh);
-  group.add(tilt);
-  return { group, mesh, uniforms };
-}
-
 /* ── планеты вкусов ───────────────────────────────────────────────── */
 
 // Десять фото планет (src/assets/planets). Каждая рисуется отдельной плоскостью в пространстве сцены; смену вкуса
