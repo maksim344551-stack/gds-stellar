@@ -250,7 +250,7 @@ export function makePlanets(urls, renderer) {
 
   const geometry = new THREE.PlaneGeometry(1, 1);
   function slot() {
-    const uniforms = { uMap: { value: blank }, uAlpha: { value: 0 }, uGain: { value: 0.85 } };
+    const uniforms = { uMap: { value: blank }, uAlpha: { value: 0 }, uGain: { value: 0.66 } };
     const material = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
