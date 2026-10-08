@@ -177,82 +177,61 @@ export function makeStars(count, pr) {
 
 /* ── луна ─────────────────────────────────────────────────────────── */
 
-export function makeMoon() {
+// Фото луны (src/assets/moon.jpg, диск вырезан по кругу) проецируется на сферу, обращённую к камере.
+// Видна только ближняя сторона, поэтому «вращение» это либрация: покачивание в пределах нескольких градусов
+// (как у настоящей луны, всегда повёрнутой одной стороной), плюс небольшой доворот при прокрутке (uYaw).
+// Освещение запечено в снимке; шейдер добавляет золотую кайму и гасит луну по uAlpha.
+export function makeMoon(url, maxAniso = 8) {
+  const map = new THREE.TextureLoader().load(url);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.anisotropy = maxAniso;
   const uniforms = {
+    uMap: { value: map },
     uAlpha: { value: 1 },
     uRim: { value: new THREE.Color('#cdac62') },
     uLight: { value: new THREE.Vector3(0.6, 0.45, -0.4).normalize() },
-    uBump: { value: 1.3 },
+    uYaw: { value: 0 },
+    uPitch: { value: 0 },
     uDetail: { value: 1 },
     uGain: { value: 1 },
-    uSeed: { value: 7.3 },
   };
   const material = new THREE.ShaderMaterial({
     transparent: true,
+    depthWrite: false,
     uniforms,
     vertexShader: /* glsl */ `
-      varying vec3 vN; varying vec3 vP; varying vec3 vV;
+      varying vec3 vP; varying vec3 vN; varying vec3 vV;
       void main(){
         vP = position;
         vN = normalize(normalMatrix * normal);
-        vec4 mv = modelViewMatrix * vec4(position,1.);
+        vec4 mv = modelViewMatrix * vec4(position, 1.);
         vV = -mv.xyz;
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: /* glsl */ `
-      uniform float uAlpha; uniform vec3 uRim; uniform vec3 uLight; uniform float uBump; uniform float uSeed; uniform float uDetail; uniform float uGain;
-      varying vec3 vN; varying vec3 vP; varying vec3 vV;
-      ${NOISE}
-      // кратеры: сумма «чаша + вал» по ячейкам; высота в долях радиуса луны
-      float craters(vec3 p, float scale, float depth){
-        vec3 q = p*scale + uSeed;
-        vec3 i = floor(q); vec3 f = fract(q);
-        float h = 0.;
-        // радиус кратера < 0.5 ячейки, поэтому по каждой оси достаточно своей ячейки и одного соседа: 8 вместо 27
-        vec3 dir = vec3(f.x < .5 ? -1. : 1., f.y < .5 ? -1. : 1., f.z < .5 ? -1. : 1.);
-        for (int z=0; z<2; z++) for (int y=0; y<2; y++) for (int x=0; x<2; x++){
-          vec3 g = vec3(float(x), float(y), float(z)) * dir;
-          vec3 o = hash33(i+g);
-          vec3 d = g + o - f;
-          float rad = mix(.2, .4, hash13(i+g+7.7));
-          float t = length(d) / rad;
-          float bowl = (1. - t*t) * step(t, 1.);
-          float rim = exp(-pow((t-1.0)*6., 2.)) * smoothstep(1.2, 1.0, t); // вал гаснет до границы ячейки: иначе на стыке 8 ячеек виден шов
-          h += (-bowl * .8 + rim * .35) * depth * rad;
-        }
-        return h / scale;
-      }
-      vec3 perturb(vec3 n, vec3 pos, float h, float k){
-        vec3 dpx = dFdx(pos); vec3 dpy = dFdy(pos);
-        float dhx = dFdx(h); float dhy = dFdy(h);
-        vec3 r1 = cross(dpy, n); vec3 r2 = cross(n, dpx);
-        float det = dot(dpx, r1);
-        vec3 grad = sign(det) * (dhx*r1 + dhy*r2);
-        return normalize(abs(det)*n - k*grad);
-      }
+      uniform sampler2D uMap; uniform float uAlpha; uniform vec3 uRim; uniform vec3 uLight; uniform float uGain; uniform float uYaw; uniform float uPitch;
+      varying vec3 vP; varying vec3 vN; varying vec3 vV;
       void main(){
+        vec3 n = normalize(vP);
+        float cy = cos(uYaw), sy = sin(uYaw), cp = cos(uPitch), sp = sin(uPitch);
+        n = vec3(cy*n.x + sy*n.z, n.y, -sy*n.x + cy*n.z);
+        n = vec3(n.x, cp*n.y - sp*n.z, sp*n.y + cp*n.z);
+        // за пределом снимка (край, довёрнутый от камеры) берём кромку диска: полоса в 1-2% радиуса
+        vec2 q = n.xy;
+        float rr = length(q);
+        if (rr > .985) q *= .985 / rr;
+        vec3 tex = texture2D(uMap, .5 + q * .5 * .9956).rgb;
+        vec3 col = tex * vec3(1.04, 1., .93) * .9;
         vec3 n0 = normalize(vN);
         vec3 v = normalize(vV);
-        float low = fbm3(vP*2.2 + uSeed);
-        float h = low * .03;
-        h += craters(vP, 4.5, .36);
-        if (uDetail > .5) h += craters(vP, 10.5, .34);
-        // у самого края диска производные нестабильны: рельеф там плавно гасим
-        vec3 n = perturb(n0, -vV, h, uBump * smoothstep(.1, .45, dot(n0, v)));
-        float ndl = dot(n, uLight);
-        float lit = smoothstep(-.05, .62, ndl);
-        float maria = smoothstep(.4, .62, low);
-        float tone = clamp(.55 + h*16., 0., 1.) * (1. - .38*maria);
-        vec3 albedo = mix(vec3(.05,.05,.055), vec3(.2,.195,.185), tone);
-        vec3 col = albedo * (lit*1.5 + max(dot(n, normalize(vec3(-.55,.25,.8))),0.)*.12 + .03);
-        float fres = pow(1. - max(dot(n0, v), 0.), 3.0);
+        float ndv = max(dot(n0, v), 0.);
         float edgeLit = smoothstep(-.15, .85, dot(n0, uLight));
-        col += uRim * fres * (.06 + 1.1*edgeLit);
+        col += uRim * pow(1. - ndv, 3.) * (.04 + .55 * edgeLit);
         gl_FragColor = vec4(col * uGain, uAlpha);
         ${OUT}
       }`,
   });
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 96), material);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), material);
   mesh.frustumCulled = false;
   const group = new THREE.Group();
   group.add(mesh);

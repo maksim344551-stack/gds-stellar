@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
+import moonUrl from './assets/moon.jpg';
 import { dotTexture, makeMoon, makeNebula, makeStar, makeStars } from './cosmos.js';
 
 const RING_R = 2.6;
@@ -72,7 +73,7 @@ export async function createScene(canvas, { lowPower, light }) {
   rim.position.set(4, 1, -3);
   rigCam.add(key, rim);
 
-  const moon = makeMoon();
+  const moon = makeMoon(moonUrl, renderer.capabilities.getMaxAnisotropy());
   rigCam.add(moon.group);
   const star = makeStar();
   rigCam.add(star.group);
@@ -135,6 +136,9 @@ export async function createScene(canvas, { lowPower, light }) {
   applyDetail();
   window.addEventListener('resize', size);
 
+  const ORIGIN = new THREE.Vector3();
+  const UP = new THREE.Vector3(0, 1, 0);
+  const moonM = new THREE.Matrix4();
   const tmp = new THREE.Vector3();
   const tmp2 = new THREE.Vector3();
   const starPos = new THREE.Vector3();
@@ -188,8 +192,13 @@ export async function createScene(canvas, { lowPower, light }) {
     // луна: свет приходит от звезды
     moon.group.visible = s.moon.a > 0.005;
     moon.group.position.set(s.moon.x, s.moon.y, s.moon.z);
-    moon.group.scale.setScalar(s.moon.s);
-    moon.group.rotation.y = time * 0.006;
+    // ближней стороной к камере (камера в начале координат rig); радиус чуть меньше: сфера в перспективе шире плоского диска
+    moonM.lookAt(ORIGIN, moon.group.position, UP);
+    moon.group.quaternion.setFromRotationMatrix(moonM);
+    moon.group.scale.setScalar(s.moon.s * 0.92);
+    // либрация: два медленных покачивания разного периода, плюс доворот при прокрутке
+    moon.uniforms.uYaw.value = 0.09 * Math.sin(time * 0.16) + s.moon.r;
+    moon.uniforms.uPitch.value = 0.06 * Math.sin(time * 0.11 + 1.3);
     moon.uniforms.uAlpha.value = s.moon.a;
     moon.uniforms.uGain.value = s.moon.g;
     moon.uniforms.uRim.value.copy(s.moonRim);

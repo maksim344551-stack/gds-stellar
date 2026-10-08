@@ -147,7 +147,7 @@ const cur = {
   time: 0, dt: 0.016, fly: 0, warp: 0, px: 0, py: 0, intro: 0, co: 0,
   tint: new THREE.Color(BRAND.a),
   moonRim: new THREE.Color('#cdac62'),
-  moon: { x: 3.4, y: -4, z: -12, s: 5.2, a: 0, g: 1 },
+  moon: { x: 3.4, y: -4, z: -12, s: 5.2, a: 0, g: 1, r: 0 },
   star: { x: 10, y: 0.6, z: -17, s: 1.7, core: 0, vis: 0, hot: GOLD_HOT.clone(), cool: GOLD_COOL.clone() },
   jar: { x: 1.8, y: -3, s: 0.6, ry: 0, rx: 0.36, rz: -0.22, vis: false },
   ring: { vis: 0, rot: 0, active: 0 },
@@ -289,8 +289,8 @@ function targets(y) {
 
   // луна: в первом экране большая, снизу справа; дальше уходит влево и вверх
   t.moon = narrow
-    ? { x: lerp(0.6, -10, hero), y: lerp(-5.3, 3, hero) - (1 - iv) * 2, z: lerp(-12, -30, hero), s: 4.2, a: 1 - hero, g: 0.62 }
-    : { x: lerp(3.5, -10, hero), y: lerp(-3.6, 3, hero) - (1 - iv) * 2.4, z: lerp(-12, -30, hero), s: lerp(5.2, 4.4, hero) * lerp(0.92, 1, iv), a: (1 - hero) * clamp(iv * 1.6), g: 1 };
+    ? { x: lerp(0.6, -10, hero), y: lerp(-7.4, 3, hero) - (1 - iv) * 2, z: lerp(-12, -30, hero), s: 4.2, a: 1 - hero, g: 0.55, r: -0.16 * hero }
+    : { x: lerp(3.5, -10, hero), y: lerp(-3.6, 3, hero) - (1 - iv) * 2.4, z: lerp(-12, -30, hero), s: lerp(5.2, 4.4, hero) * lerp(0.92, 1, iv), a: (1 - hero) * clamp(iv * 1.6), g: 1, r: -0.16 * hero };
 
   // звезда: за краем луны в первом экране, тускнеет в упаковке, встаёт за банкой в линейке
   const sHero = narrow ? { x: 7, y: 0.4, z: -17, s: 0.9, c: 0, k: 1.1 } : { x: 9.1, y: 1.5, z: -17, s: 1.15, c: 0, k: 1.1 };
@@ -361,7 +361,7 @@ function frame(now) {
   cur.py = pointer.y;
   cur.tint.lerp(tintTarget, k(3));
 
-  for (const key of ['x', 'y', 'z', 's', 'a', 'g']) cur.moon[key] = lerp(cur.moon[key], t.moon[key], k(6));
+  for (const key of ['x', 'y', 'z', 's', 'a', 'g', 'r']) cur.moon[key] = lerp(cur.moon[key], t.moon[key], k(6));
   for (const key of ['x', 'y', 'z', 's', 'core', 'vis']) cur.star[key] = lerp(cur.star[key], key === 'core' ? t.star.c : t.star[key], k(5));
   cur.star.hot.lerp(hotTarget, k(3));
   cur.star.cool.lerp(coolTarget, k(3));
