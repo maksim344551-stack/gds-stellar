@@ -1,0 +1,3 @@
+# Сайт на этапе согласования: индексация отключена. Чтобы открыть — удалить Disallow и meta robots в index.html.
+User-agent: *
+Disallow: /

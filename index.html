@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>GDS «Джедес» — Discover Star</title>
+  <meta name="description" content="Премиальный сигарный кальянный табак GDS «Джедес». Линейка Stellar. Информация для оптовых партнёров." />
+  <meta name="theme-color" content="#050506" />
+  <meta name="robots" content="noindex, nofollow" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <script type="module" src="/src/main.js"></script>
+</head>
+<body class="is-locked">
+  <canvas id="gl" aria-hidden="true"></canvas>
+  <div class="cursor-glow" aria-hidden="true"></div>
+
+  <!-- Возрастной экран -->
+  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+    <div class="gate-card">
+      <div class="logo-mark" role="img" aria-label="GDS"></div>
+      <h2 id="gate-title">Вам исполнилось 18 лет?</h2>
+      <p>Сайт содержит информацию о табачной продукции и предназначен только для совершеннолетних.</p>
+      <div class="gate-actions">
+        <button class="btn btn-gold" id="gate-yes" type="button">Да, мне есть 18</button>
+        <button class="btn btn-ghost" id="gate-no" type="button">Нет</button>
+      </div>
+      <p class="gate-deny" id="gate-deny" hidden>Доступ к сайту закрыт.</p>
+    </div>
+  </div>
+
+  <header class="nav" id="nav">
+    <a class="nav-logo" href="#hero" data-go="hero" aria-label="GDS — наверх"><span class="logo-mark" role="img" aria-label="GDS"></span></a>
+    <nav class="nav-links" aria-label="Разделы">
+      <a href="#product" data-go="product">Упаковка</a>
+      <a href="#flavors" data-go="flavors">Вкусы</a>
+      <a href="#blend" data-go="blend">Купаж</a>
+      <a href="#partners" data-go="partners">Партнёрам</a>
+    </nav>
+    <a class="btn btn-gold btn-sm" href="#contact" data-go="contact">Стать партнёром</a>
+  </header>
+
+  <main id="main">
+    <!-- 00 · HERO -->
+    <section id="hero" class="hero">
+      <div class="hero-inner">
+        <p class="eyebrow" data-reveal>Линейка Stellar · GDS «Джедес»</p>
+        <h1 class="display">
+          <span class="line"><span data-line>Discover</span></span>
+          <span class="line"><span data-line class="gold-text">Star</span></span>
+        </h1>
+        <p class="lead" data-reveal>Премиальный сигарный кальянный табак. Десять вкусов — десять звёзд. Матовый чёрный, купольное золото и купаж из четырёх сортов листа.</p>
+        <div class="cta" data-reveal>
+          <a class="btn btn-gold" href="#flavors" data-go="flavors">Открыть линейку</a>
+          <a class="btn btn-ghost" href="#contact" data-go="contact">Стать партнёром</a>
+        </div>
+      </div>
+      <div class="scroll-hint" aria-hidden="true"><span></span>Скролл</div>
+    </section>
+
+    <!-- 01 · УПАКОВКА -->
+    <section id="product" class="tall" data-screens="3.2">
+      <div class="pin">
+        <div class="chapters">
+          <article class="chapter on" data-ch="0">
+            <p class="eyebrow">01 — Упаковка</p>
+            <h2 class="h2" data-split>Банка, в которой звёздное небо</h2>
+            <p class="lead">Оформление в матовом чёрном цвете в сочетании с купольным золотом. Ассоциация со звёздным небом и премиальность новой линии — в каждой детали.</p>
+          </article>
+          <article class="chapter" data-ch="1">
+            <p class="eyebrow">01 — Упаковка</p>
+            <h2 class="h2">Продумана до миллиметра</h2>
+            <ul class="specs">
+              <li><b>25 г</b><span>табака в банке</span></li>
+              <li><b>Полусфера</b><span>Термос с отсекателем: табак легко извлекать — в отличие от банок с плоским дном.</span></li>
+              <li><b>Обечайка</b><span>Придаёт банке устойчивость и объём, позволяет выигрышнее позиционировать её на полке.</span></li>
+            </ul>
+          </article>
+          <article class="chapter" data-ch="2">
+            <p class="eyebrow">01 — Продукт</p>
+            <h2 class="h2">Generation &amp; Delivery Smoke</h2>
+            <p class="lead">GDS, по-русски «Джедес» — табак для вкусового, дымного и длительного курения в трубочной обработке. Слоган линейки — «Discover Star»: «Открой звезду».</p>
+            <p class="small">Производитель — компания «М-Техно», Санкт-Петербург.</p>
+          </article>
+        </div>
+        <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
+      </div>
+    </section>
+
+    <!-- 02 · ВКУСЫ -->
+    <section id="flavors" class="tall">
+      <div class="pin pin-flavors">
+        <div class="f-panel">
+          <p class="eyebrow">02 — Линейка Stellar</p>
+          <div class="f-count"><span id="f-idx">01</span><em>/ 10</em></div>
+          <h2 class="f-name" id="f-name">Altair</h2>
+          <p class="f-ru" id="f-ru">Мята</p>
+          <p class="f-desc" id="f-desc"></p>
+        </div>
+        <ol class="f-list" id="f-list" aria-label="Вкусы"></ol>
+      </div>
+    </section>
+
+    <!-- 03 · КУПАЖ -->
+    <section id="blend" class="block">
+      <div class="wrap">
+        <p class="eyebrow" data-reveal>03 — Купаж</p>
+        <h2 class="h2 wide" data-split>4 сорта. Один купаж.</h2>
+        <p class="lead" data-reveal>Табак разработан на основе точно выверенного сочетания сразу четырёх сортов — сложная технология и работа со сложными купажами.</p>
+        <div class="sorts">
+          <article class="sort tilt" data-reveal><span class="num">01</span><h3>Оберточный сигарный</h3><p>Формирует крепость купажа и добавляет лёгкой остроты.</p></article>
+          <article class="sort tilt" data-reveal><span class="num">02</span><h3>Берли</h3><p>В обработке Кавендиш.</p></article>
+          <article class="sort tilt" data-reveal><span class="num">03</span><h3>Вирджиния Ред</h3><p>В обработке Кавендиш — сладковато-горькие ноты шоколада.</p></article>
+          <article class="sort tilt" data-reveal><span class="num">04</span><h3>Вирджиния Голд</h3><p>Естественной ферментации, с лёгкими фруктовыми нотами.</p></article>
+        </div>
+        <ul class="adv">
+          <li data-reveal>Новый взгляд на создание табачного купажа</li>
+          <li data-reveal>Натуральные ароматические эссенции, которые не забивают уникальный вкус листа</li>
+          <li data-reveal>Долгий срок хранения и удобство упаковки</li>
+          <li data-reveal>Высокая крепость (в никотиновом эквиваленте)</li>
+          <li data-reveal>Широкая линейка вкусов на старте продаж</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 04 · ПАРТНЁРАМ -->
+    <section id="partners" class="block">
+      <div class="wrap">
+        <p class="eyebrow" data-reveal>04 — Партнёрам</p>
+        <h2 class="h2 wide" data-split>Продавайте звезду вместе с нами</h2>
+        <div class="perks">
+          <article class="perk" data-reveal><span class="num">01</span><h3>Крупный производитель</h3><p>Партнёрство с крупным заводом-производителем.</p></article>
+          <article class="perk" data-reveal><span class="num">02</span><h3>Высокая маржинальность</h3><p>Условия и расчёт — по запросу.</p></article>
+          <article class="perk" data-reveal><span class="num">03</span><h3>Обучение продавцов</h3><p>История создания, уникальность процесса забивки, обработка листа.</p></article>
+          <article class="perk" data-reveal><span class="num">04</span><h3>Бесперебойные поставки</h3><p>Стабильное производство в Санкт-Петербурге.</p></article>
+          <article class="perk" data-reveal><span class="num">05</span><h3>Материалы для SMM</h3><p>Готовые материалы для продвижения.</p></article>
+          <article class="perk" data-reveal><span class="num">06</span><h3>Мотивация продавцов</h3><p>Программа мотивации для вашей команды.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 · КОНТАКТЫ -->
+    <section id="contact" class="block contact">
+      <div class="wrap contact-grid">
+        <div>
+          <p class="eyebrow" data-reveal>05 — Контакты</p>
+          <h2 class="h2 wide" data-split>Начните продавать GDS уже сегодня</h2>
+          <p class="lead" data-reveal>Мы открыты для сотрудничества и готовы предложить выгодные условия партнёрам. Давайте вместе развивать рынок уникального кальянного табака.</p>
+          <dl class="contacts" data-reveal>
+            <div><dt>Телефон</dt><dd><a href="tel:88003004999">8 800 300 4999</a></dd></div>
+            <div><dt>Отдел закупок</dt><dd><a href="tel:+79990050301">+7 999 005 0301</a></dd></div>
+            <div><dt>Почта</dt><dd><a href="mailto:Mtechno.tobacco@gmail.com">Mtechno.tobacco@gmail.com</a></dd></div>
+            <div><dt>Производство</dt><dd>Россия, Санкт-Петербург, Колпино, Финляндская ул. 35</dd></div>
+          </dl>
+        </div>
+        <form class="form" id="lead-form" data-reveal novalidate>
+          <h3>Заявка на сотрудничество</h3>
+          <label>Имя<input name="name" autocomplete="name" required /></label>
+          <label>Компания<input name="company" autocomplete="organization" /></label>
+          <label>Город<input name="city" autocomplete="address-level2" /></label>
+          <label>Телефон или e-mail<input name="contact" autocomplete="off" required /></label>
+          <label>Сообщение<textarea name="message" rows="3"></textarea></label>
+          <label class="check"><input type="checkbox" name="consent" required /><span>Согласен на обработку персональных данных. Мне есть 18 лет, я представляю юридическое лицо или ИП, торгующее табачной продукцией.</span></label>
+          <button class="btn btn-gold" type="submit">Отправить заявку</button>
+          <p class="form-note" id="form-note" role="status"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <div class="logo-mark sm" role="img" aria-label="GDS"></div>
+      <p>© М-Техно · GDS «Джедес». Информация предназначена исключительно для оптовых партнёров — совершеннолетних лиц, осуществляющих торговлю табачной продукцией, и не является рекламой или публичной офертой.</p>
+      <p class="warn">Курение вредит вашему здоровью.</p>
+    </div>
+  </footer>
+
+  <noscript><p class="noscript">Для просмотра сайта включите JavaScript.</p></noscript>
+</body>
+</html>
