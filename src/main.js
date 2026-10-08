@@ -160,6 +160,12 @@ let sc = null;
 function showFlavor(i) {
   const f = FLAVORS[i];
   fButtons.forEach((b, k) => (k === i ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current')));
+  // на телефоне список вкусов прокручивается вбок: выбранный вкус держим в центре, чтобы он не уходил за край экрана
+  const list = el.fList;
+  if (list.scrollWidth > list.clientWidth + 4) {
+    const b = fButtons[i];
+    list.scrollTo({ left: b.parentElement.offsetLeft - (list.clientWidth - b.offsetWidth) / 2, behavior: reduced ? 'auto' : 'smooth' });
+  }
   swapEls.forEach((e) => e.classList.add('out'));
   clearTimeout(swapTimer);
   swapTimer = setTimeout(() => {

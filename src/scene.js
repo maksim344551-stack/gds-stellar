@@ -193,10 +193,10 @@ export async function createScene(canvas, { lowPower, light }) {
     const pl = s.planet;
     const P = planets;
     const narrow = camera.aspect < 0.95;
-    const H = narrow ? 11 : 17;
+    const H = narrow ? 15 : 17;
     const W = H * (1100 / 1387);
     const bx = (narrow ? 0 : 7.4) + s.px * 0.5;
-    const by = (narrow ? 2.4 : 0.4) + Math.sin(time * 0.25) * 0.12 - s.py * 0.3;
+    const by = (narrow ? 1.9 : 0.4) + Math.sin(time * 0.25) * 0.12 - s.py * 0.3;
     const bz = narrow ? -20 : -22;
     const sm = THREE.MathUtils.smoothstep;
     const m = pl.mix;

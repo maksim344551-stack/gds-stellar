@@ -83,6 +83,7 @@ main, .footer { position: relative; z-index: 2; }
 .nav.away { transform: translateY(-100%); }
 .nav-logo .logo-mark { width: 4rem; }
 .nav-toggle { display: none; }
+.nav-menu-contact { display: none; }
 .nav-links { display: flex; gap: 2.2rem; margin-left: auto; }
 .nav-links a { position: relative; padding: 8px 0; font-size: 1rem; font-weight: 500; color: var(--ink-2); text-decoration: none; transition: color 0.25s; }
 .nav-links a::after { content: ''; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform 0.35s var(--ease); }
@@ -241,9 +242,12 @@ main, .footer { position: relative; z-index: 2; }
   .nav.open .nav-toggle i:first-child { top: 1.33rem; transform: rotate(45deg); }
   .nav.open .nav-toggle i:last-child { top: 1.33rem; transform: rotate(-45deg); }
   .nav.open { background: var(--bg); border-bottom-color: var(--line); }
-  .nav-links { position: fixed; left: 0; right: 0; top: var(--nav-h); display: none; flex-direction: column; gap: 0; margin: 0; padding: 0.5rem var(--edge) 1.5rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+  /* меню на весь экран: крупные пункты и контакты внизу */
+  .nav-links { position: fixed; left: 0; right: 0; top: var(--nav-h); bottom: 0; display: none; flex-direction: column; gap: 0; margin: 0; padding: 0.5rem var(--edge) calc(1.5rem + env(safe-area-inset-bottom)); overflow-y: auto; background: var(--bg); border-top: 1px solid var(--line); }
+  .nav-menu-contact { display: grid; gap: 0.6rem; margin-top: auto; padding-top: 2rem; }
+  .nav-menu-contact a { padding: 0.4rem 0; border: 0; font-size: 1.1rem; color: var(--ink-2); }
   .nav.open .nav-links { display: flex; }
-  .nav-links a { padding: 1rem 0; font-size: 1.25rem; border-bottom: 1px solid var(--line); }
+  .nav-links > a { padding: 1.15rem 0; font-size: clamp(1.6rem, 7vw, 2.1rem); font-weight: 600; font-stretch: 112%; border-bottom: 1px solid var(--line); }
   .nav-links a::after { display: none; }
   .nav.away.open { transform: none; }
   .plain-list { columns: 1; }
