@@ -219,9 +219,16 @@ export async function createScene(canvas, { lowPower, light }) {
       slot.uniforms.uMap.value = P.get(id);
       slot.uniforms.uAlpha.value = a;
     };
-    place(pl.a, P.cur, -7 * outE, 2 * outE, -9 * outE, 0.18 * outE, fOut);
-    if (m > 0.001) place(pl.b, P.next, 8 * (1 - inE), -3.4 * (1 - inE), -12 * (1 - inE), -0.22 * (1 - inE), fIn);
-    else P.next.mesh.visible = false;
+    // на узком экране видно всего ~7 единиц в ширину: смещения короче и в основном вертикальные (прежняя уходит вверх и вдаль,
+    // следующая поднимается снизу), иначе планета за долю секунды вылетала бы из кадра
+    if (narrow) {
+      place(pl.a, P.cur, -1.6 * outE, 3.6 * outE, -9 * outE, 0.1 * outE, fOut);
+      if (m > 0.001) place(pl.b, P.next, 1.8 * (1 - inE), -5.2 * (1 - inE), -12 * (1 - inE), -0.12 * (1 - inE), fIn);
+    } else {
+      place(pl.a, P.cur, -7 * outE, 2 * outE, -9 * outE, 0.18 * outE, fOut);
+      if (m > 0.001) place(pl.b, P.next, 8 * (1 - inE), -3.4 * (1 - inE), -12 * (1 - inE), -0.22 * (1 - inE), fIn);
+    }
+    if (m <= 0.001) P.next.mesh.visible = false;
 
     // банка
     const j = s.jar;

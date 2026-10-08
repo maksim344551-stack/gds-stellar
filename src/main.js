@@ -147,6 +147,7 @@ const tintTarget = new THREE.Color(BRAND.a);
 const hotTarget = GOLD_HOT.clone();
 const coolTarget = GOLD_COOL.clone();
 const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+let lastScrim = -1;
 let skinId = 'brand';
 let flavorIdx = 0;
 let swapTimer = 0;
@@ -431,6 +432,10 @@ function frame(now) {
     chapter = ch;
     el.chapters.forEach((c, i) => c.classList.toggle('on', i === ch));
   }
+
+  // затемнение под текстом на телефоне проявляется вместе с появлением банки и уходит вместе с ней
+  const scrim = sstep(L.vh * 0.45, L.vh * 0.95, window.scrollY) * (1 - t.exit);
+  if (Math.abs(scrim - lastScrim) > 0.004) { lastScrim = scrim; root.style.setProperty('--scrim', scrim.toFixed(3)); }
 
   if (!sc) return;
   sc.update({ ...cur, jar: { ...cur.jar, ry: cur.jar.ry + spin.v } });

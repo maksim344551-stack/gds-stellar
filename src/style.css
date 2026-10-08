@@ -262,7 +262,18 @@ main, .footer { position: relative; z-index: 2; }
   .display { font-size: clamp(2.5rem, 12.5vw, 4.6rem); }
   .cta .btn { height: 3rem; }
   .pin { align-items: flex-end; padding-bottom: 6svh; }
-  .pin::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 72%; z-index: 1; pointer-events: none; background: linear-gradient(transparent, rgba(8, 8, 10, 0.92) 48%); }
+  /* затемнение под текстом: высота по блоку текста (чуть больше половины экрана), плавная кривая вместо линейной и проявление по прокрутке
+     (--scrim задаёт main.js), чтобы тёмное пятно не въезжало в кадр вместе с секцией */
+  .pin::before {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 64%; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
+    background: linear-gradient(to top, rgba(8, 8, 10, 0.9) 0%, rgba(8, 8, 10, 0.86) 28%, rgba(8, 8, 10, 0.74) 46%, rgba(8, 8, 10, 0.52) 62%,
+      rgba(8, 8, 10, 0.3) 76%, rgba(8, 8, 10, 0.13) 88%, rgba(8, 8, 10, 0.04) 95%, rgba(8, 8, 10, 0) 100%);
+  }
+  /* смена текста вкуса идёт каскадом: название, перевод, описание, данные звезды */
+  .f-swap { transition: opacity 0.35s ease-out, transform 0.6s var(--ease); }
+  #f-ru.f-swap { transition-delay: 0.05s; }
+  #f-desc.f-swap { transition-delay: 0.1s; }
+  #f-astro.f-swap { transition-delay: 0.15s; }
   .chapters { width: 100%; }
   .chapter { align-self: end; }
   .chapter .h2 { margin-bottom: 14px; }
