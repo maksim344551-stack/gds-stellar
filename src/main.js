@@ -39,14 +39,13 @@ const el = {
   loader: $('#loader'), fill: $('#ld-fill'), pct: $('#ld-pct'),
   gate: $('#gate'), nav: $('#nav'),
   product: $('#product'), flavors: $('#flavors'), blend: $('#blend'), partners: $('#partners'), contact: $('#contact'),
-  chapters: $$('.chapter'),
   fIdx: $('#f-idx'), fName: $('#f-name'), fRu: $('#f-ru'), fDesc: $('#f-desc'), fAstro: $('#f-astro'), fList: $('#f-list'),
   fPrev: $('#f-prev'), fNext: $('#f-next'),
   overlay: $('#overlay'),
   navLinks: $$('.nav-links a[data-sec]'),
 };
-el.product.style.height = `calc(${el.product.dataset.screens} * 100svh)`;
-el.flavors.style.height = `calc(${1 + FLAVORS.length * 0.55} * 100svh)`;
+// блок вкусов: один закреплённый экран с небольшим запасом прокрутки; вкус выбирается нажатием, а не длиной страницы
+el.flavors.style.height = 'calc(1.3 * 100svh)';
 
 // ── заставка ───────────────────────────────────────────────────────
 const loader = { target: 0, shown: 0, finished: false };
@@ -84,6 +83,7 @@ FLAVORS.forEach((f, i) => {
   b.type = 'button';
   b.textContent = f.star;
   b.dataset.i = String(i);
+  b.style.setProperty('--dot', f.a);
   li.append(b);
   el.fList.append(li);
 });
@@ -115,7 +115,7 @@ function scrollToY(y) {
 let L = { vh: innerHeight, prodTop: 0, prodH: 1, flavTop: 0, flavH: 1, blendTop: 0, partnersTop: 0, contactTop: 0, docH: 1 };
 function measure() {
   const top = (e) => e.getBoundingClientRect().top + window.scrollY;
-  const vh = $('.pin', el.product).offsetHeight || window.innerHeight || 720;
+  const vh = $('.pin', el.flavors).offsetHeight || window.innerHeight || 720;
   L = {
     vh,
     prodTop: top(el.product), prodH: el.product.offsetHeight,
@@ -154,7 +154,6 @@ let swapTimer = 0;
 let accentReset = false;
 let spinTween = null;
 let prevY = 0;
-let chapter = 0;
 let section = '';
 let sc = null;
 
@@ -254,16 +253,17 @@ function requestStage(want) {
   });
 }
 
+// Вкус выбирает пользователь (нажатие, стрелки, клавиши, свайп); прокрутка вкус не меняет.
+let flavorsActive = false;
 function setFlavor(i) {
-  if (i === flavorIdx && skinId === FLAVORS[i].id) return;
+  if (i === flavorIdx) return;
   flavorIdx = i;
   showFlavor(i);
-  goSkin(FLAVORS[i].id);
+  if (flavorsActive) goSkin(FLAVORS[i].id);
 }
 showFlavor(0);
 
-const flavorY = (i) => L.flavTop + ((i + 0.5) / FLAVORS.length) * (L.flavH - L.vh);
-fButtons.forEach((b) => b.addEventListener('click', () => scrollToY(flavorY(Number(b.dataset.i)))));
+fButtons.forEach((b) => b.addEventListener('click', () => setFlavor(Number(b.dataset.i))));
 // меню на телефоне
 const navToggle = $('#nav-toggle');
 const setMenu = (open) => {
@@ -275,10 +275,7 @@ addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
 addEventListener('resize', () => { if (innerWidth > 900) setMenu(false); });
 $$('.nav-links a, .nav-cta, .nav-logo').forEach((a) => a.addEventListener('click', () => setMenu(false)));
 
-const stepFlavor = (d) => {
-  const i = clamp(flavorIdx + d, 0, FLAVORS.length - 1);
-  if (i !== flavorIdx) scrollToY(flavorY(i));
-};
+const stepFlavor = (d) => setFlavor((flavorIdx + d + FLAVORS.length) % FLAVORS.length);
 // свайп по сцене вкусов: горизонтальный жест листает вкус, вертикальная прокрутка не затрагивается
 {
   const zone = $('.pin-flavors');
@@ -305,8 +302,8 @@ $$('[data-go]').forEach((a) => a.addEventListener('click', (e) => {
   e.preventDefault();
   const id = a.dataset.go;
   let y = 0;
-  if (id === 'product') y = L.prodTop + L.vh * 0.1;
-  else if (id === 'flavors') y = L.flavTop + L.vh * 0.2;
+  if (id === 'product') y = L.prodTop;
+  else if (id === 'flavors') y = L.flavTop + L.vh * 0.1;
   else if (id !== 'hero') y = (el[id] || $(`#${id}`)).getBoundingClientRect().top + window.scrollY;
   scrollToY(y);
 }));
@@ -317,16 +314,14 @@ function targets(y) {
   const aspect = innerWidth / innerHeight;
   const narrow = aspect < 0.95;
   const hero = sstep(0, vh * 0.9, y);
-  const prodP = clamp((y - L.prodTop) / Math.max(1, L.prodH - vh));
   const flavT = sstep(L.flavTop - vh * 0.55, L.flavTop + vh * 0.05, y);
-  const flavP = clamp((y - L.flavTop) / Math.max(1, L.flavH - vh));
   const flavEnd = L.flavTop + L.flavH - vh;
   const exit = sstep(flavEnd, flavEnd + vh * 0.95, y);
   const iv = easeOut(cur.intro);
   // банка стоит справа от оси взгляда: чтобы лицевая сторона смотрела точно на покупателя, её доворачивают на угол линии взгляда
   const face = narrow ? 0 : -Math.atan2(1.9, 6.6);
 
-  const t = { prodP, flavT, flavP, exit, hero, narrow };
+  const t = { flavT, exit, hero, narrow };
 
   // луна: в первом экране большая, снизу справа; дальше уходит влево и вверх
   t.moon = narrow
@@ -348,8 +343,8 @@ function targets(y) {
     x: narrow ? 0 : lerp(1.8, 1.9, hero),
     y: (narrow ? lerp(1.4, 1.25, hero) : 0) + exit * 8 - (1 - iv) * 1.2,
     s: (narrow ? 0.74 : 1.12) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
-    // лицевая сторона (вкус, логотип) всегда к покупателю: в «Упаковке» банка лишь плавно покачивается на ±30° и в конце главы снова смотрит прямо
-    ry: Math.sin(prodP * Math.PI * 2) * 0.52 + face + sway * swayAmp + exit * Math.PI * 1.2,
+    // лицевая сторона (вкус, логотип) всегда к покупателю, банка лишь слегка покачивается
+    ry: face + sway * swayAmp + exit * Math.PI * 1.2,
     rx: lerp(0.36, 0.26, flavT) - pointer.y * 0.06,
     rz: lerp(-0.22, -0.07, flavT),
     vis: iv > 0.02 && exit < 0.998,
@@ -414,9 +409,10 @@ function frame(now) {
 
   // какая «шкура» у банки
   const inFlavors = t.flavT > 0.5 && !(t.exit > 0.6);
+  flavorsActive = inFlavors && t.jar.vis;
   if (!t.jar.vis) { goSkin('brand', true); accentReset = false; }
   else if (inFlavors) {
-    setFlavor(Math.min(FLAVORS.length - 1, Math.floor(t.flavP * FLAVORS.length)));
+    goSkin(FLAVORS[flavorIdx].id);
     if (accentReset) { accentReset = false; setAccent(SKINS[skinId]); }
   } else if (t.exit > 0.6) {
     // банка улетает: цвет сцены возвращается к золоту, пока она ещё в кадре
@@ -426,13 +422,6 @@ function frame(now) {
   // небесное тело за банкой: в линейке планета текущего вкуса, до неё планета упаковки, в первом экране только луна; при вылете банки остаётся как есть
   if (t.exit < 0.02) requestStage(inFlavors && t.jar.vis ? flavorIdx : t.hero > 0.5 ? 10 : -1);
 
-  // главы «Упаковки»
-  const ch = Math.min(2, Math.floor(t.prodP * 3));
-  if (ch !== chapter) {
-    chapter = ch;
-    el.chapters.forEach((c, i) => c.classList.toggle('on', i === ch));
-  }
-
   // затемнение под текстом на телефоне проявляется вместе с появлением банки и уходит вместе с ней
   const scrim = sstep(L.vh * 0.45, L.vh * 0.95, window.scrollY) * (1 - t.exit);
   if (Math.abs(scrim - lastScrim) > 0.004) { lastScrim = scrim; root.style.setProperty('--scrim', scrim.toFixed(3)); }
@@ -440,8 +429,9 @@ function frame(now) {
   if (!sc) return;
   sc.update({ ...cur, jar: { ...cur.jar, ry: cur.jar.ry + spin.v } });
 
-  // выноски на банке: только во второй главе «Упаковки» и на широком экране
-  const wantCo = chapter === 1 && t.jar.vis && !t.narrow && innerHeight > 560 && t.flavT < 0.3 ? 1 : 0;
+  // выноски на банке: пока на экране блок «Упаковка», только на широком экране
+  const inPack = y > L.prodTop - L.vh * 0.3 && y < L.flavTop - L.vh * 0.5;
+  const wantCo = inPack && t.jar.vis && !t.narrow && innerHeight > 560 ? 1 : 0;
   cur.co = lerp(cur.co, wantCo, k(6));
   callouts.forEach((c) => {
     if (cur.co < 0.01) { if (c.node.style.opacity !== '0') c.node.style.opacity = '0'; return; }

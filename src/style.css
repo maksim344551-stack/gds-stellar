@@ -115,9 +115,9 @@ main, .footer { position: relative; z-index: 2; }
 /* закреплённые сцены */
 .tall { position: relative; }
 .pin { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; padding: 0 var(--edge); }
-.chapters { position: relative; z-index: 3; display: grid; width: min(33rem, 100%); }
-.chapter { grid-area: 1 / 1; align-self: start; opacity: 0; transform: translateY(16px); pointer-events: none; transition: opacity 0.6s var(--ease), transform 0.8s var(--ease); }
-.chapter.on { opacity: 1; transform: none; pointer-events: auto; }
+/* блок «Упаковка»: один экран, текст слева, банка и планета справа (рисует сцена) */
+.stage { position: relative; min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav-h) + 1.5rem) var(--edge) 4rem; }
+.panel { position: relative; z-index: 3; width: min(33rem, 100%); }
 .specs { display: grid; }
 .specs > div { display: grid; grid-template-columns: minmax(7rem, 30%) 1fr; gap: 1rem; padding: 1.05rem 0; border-top: 1px solid var(--line); }
 .specs dt { font-size: 0.95rem; color: var(--muted); }
@@ -143,10 +143,14 @@ main, .footer { position: relative; z-index: 2; }
 .f-astro dd { font-size: 1.05rem; font-weight: 500; }
 .f-swap { transition: opacity 0.25s ease-out, transform 0.5s var(--ease); }
 .f-swap.out { opacity: 0; transform: translateY(10px); }
-.f-list { position: absolute; left: var(--edge); right: var(--edge); bottom: 5vh; z-index: 3; display: flex; flex-wrap: wrap; gap: 4px 2rem; list-style: none; }
-.f-list button { all: unset; cursor: pointer; padding: 0.7rem 0; border-bottom: 2px solid transparent; font-size: 0.95rem; font-weight: 500; color: var(--muted); transition: color 0.25s, border-color 0.25s; }
-.f-list button:hover { color: var(--ink); }
-.f-list button[aria-current='true'] { color: var(--ink); border-bottom-color: var(--fa); }
+.f-list { position: absolute; left: var(--edge); right: var(--edge); bottom: 5vh; z-index: 3; display: flex; flex-wrap: wrap; gap: 0.6rem; list-style: none; }
+.f-list button {
+  all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 0.55rem; padding: 0.6rem 0.95rem; border: 1px solid var(--line-2); border-radius: var(--r);
+  font-size: 0.95rem; font-weight: 500; color: var(--ink-2); transition: color 0.25s, border-color 0.25s, background-color 0.25s;
+}
+.f-list button::before { content: ''; width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--dot, var(--gold)); }
+.f-list button:hover { color: var(--ink); border-color: var(--dot, var(--gold)); }
+.f-list button[aria-current='true'] { color: var(--ink); border-color: var(--dot, var(--gold)); background: rgba(235, 230, 218, 0.07); }
 .f-list button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 /* информационные блоки: сплошной фон, сцена плавно растворяется на входе */
@@ -156,6 +160,7 @@ main, .footer { position: relative; z-index: 2; }
 
 .rule { border-top: 1px solid var(--line); }
 .head { max-width: 50rem; }
+.about { max-width: 50rem; margin-bottom: clamp(4rem, 9vh, 6.5rem); }
 
 /* купаж: четыре колонки на всю ширину, цвет сорта в верхней линии */
 .sorts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.5rem 2.75rem; margin: 4.5rem 0 2rem; }
@@ -262,9 +267,10 @@ main, .footer { position: relative; z-index: 2; }
   .display { font-size: clamp(2.5rem, 12.5vw, 4.6rem); }
   .cta .btn { height: 3rem; }
   .pin { align-items: flex-end; padding-bottom: 6svh; }
+  .stage { align-items: flex-end; padding-top: calc(var(--nav-h) + 1rem); padding-bottom: 6svh; }
   /* затемнение под текстом: высота по блоку текста (чуть больше половины экрана), плавная кривая вместо линейной и проявление по прокрутке
      (--scrim задаёт main.js), чтобы тёмное пятно не въезжало в кадр вместе с секцией */
-  .pin::before {
+  .pin::before, .stage::before {
     content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 64%; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
     background: linear-gradient(to top, rgba(8, 8, 10, 0.9) 0%, rgba(8, 8, 10, 0.86) 28%, rgba(8, 8, 10, 0.74) 46%, rgba(8, 8, 10, 0.52) 62%,
       rgba(8, 8, 10, 0.3) 76%, rgba(8, 8, 10, 0.13) 88%, rgba(8, 8, 10, 0.04) 95%, rgba(8, 8, 10, 0) 100%);
@@ -274,9 +280,9 @@ main, .footer { position: relative; z-index: 2; }
   #f-ru.f-swap { transition-delay: 0.05s; }
   #f-desc.f-swap { transition-delay: 0.1s; }
   #f-astro.f-swap { transition-delay: 0.15s; }
-  .chapters { width: 100%; }
-  .chapter { align-self: end; }
-  .chapter .h2 { margin-bottom: 14px; }
+  .panel { width: 100%; }
+  .stage .lead { display: none; } /* на телефоне блок упаковки компактнее: заголовок и три факта, чтобы текст не заезжал на банку */
+  .panel .h2 { margin-bottom: 14px; }
   .specs > div { grid-template-columns: 1fr; gap: 2px; padding: 10px 0; }
   .specs dd { font-size: 0.95rem; line-height: 1.45; }
   .pin-flavors { flex-direction: column; justify-content: flex-end; gap: 12px; padding-bottom: 12svh; }
@@ -285,7 +291,7 @@ main, .footer { position: relative; z-index: 2; }
   .f-name { font-size: clamp(2.4rem, 12.5vw, 4rem); }
   .f-desc { min-height: 0; font-size: 0.97rem; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .f-astro { margin-top: 14px; padding-top: 14px; gap: 10px 24px; }
-  .f-list { flex-wrap: nowrap; overflow-x: auto; gap: 18px; right: 0; bottom: 3svh; scrollbar-width: none; }
+  .f-list { flex-wrap: nowrap; overflow-x: auto; gap: 8px; right: 0; bottom: 3svh; padding-right: var(--edge); scrollbar-width: none; }
   .f-list li { flex: 0 0 auto; }
   .sorts, .contacts { grid-template-columns: 1fr; }
   .group dl > div { grid-template-columns: 1fr; gap: 2px; }
@@ -309,7 +315,7 @@ main, .footer { position: relative; z-index: 2; }
   .f-astro { display: none; }
   .f-panel { margin-top: 0; }
   .f-list { bottom: 1.5vh; }
-  .f-list button { padding: 0.45rem 0; }
+  .f-list button { padding: 0.4rem 0.8rem; }
 }
 /* невысокий телефон в портрете (360x640 и ниже): блок вкуса не должен заезжать на банку */
 @media (max-width: 760px) and (max-height: 720px) {
@@ -319,8 +325,8 @@ main, .footer { position: relative; z-index: 2; }
   .f-desc { -webkit-line-clamp: 3; font-size: 0.92rem; }
   .f-top { margin-bottom: 0.5rem; }
   .pin-flavors { padding-bottom: 15svh; }
-  .chapter .h2 { font-size: 1.7rem; }
+  .panel .h2 { font-size: 1.7rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .chapter, .f-swap, [data-in], [data-reveal], .display .line > span { transition: none; }
+  .f-swap, [data-in], [data-reveal], .display .line > span { transition: none; }
 }
