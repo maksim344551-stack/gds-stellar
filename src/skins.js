@@ -1,14 +1,23 @@
 import * as THREE from 'three';
 import { SKINS } from './data.js';
-
 import LOGO_URL from './assets/logo-lg.png';
+
 const SANS = '"Manrope Variable", system-ui, sans-serif';
 const DISPLAY = '"Unbounded Variable", "Manrope Variable", sans-serif';
 
+// Карта «шероховатость/металличность» (G/B-каналы): пластик, чернила и фольга.
+const MR = {
+  plastic: 'rgb(255,128,0)',
+  ink: 'rgb(255,112,0)',
+  panel: 'rgb(255,150,0)',
+  foil: 'rgb(255,84,196)',
+};
+
+const CACHE_LIMIT = 5;
 let logo = null;
-const tintCache = new Map();
-const texCache = new Map();
 let maxAniso = 8;
+const tintCache = new Map();
+const cache = new Map(); // id -> { label, mr, lid, lidMr, tex[] }
 
 export async function loadSkinAssets(renderer) {
   maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
@@ -25,7 +34,7 @@ export async function loadSkinAssets(renderer) {
       document.fonts.load(`600 30px ${SANS}`),
       document.fonts.load(`800 30px ${SANS}`),
     ]);
-  } catch { /* шрифты подтянутся позже, лейбл просто перерисуется при следующем показе */ }
+  } catch { /* шрифты подтянутся позже, этикетка перерисуется при следующем показе */ }
 }
 
 function canvas(w, h) {
@@ -35,20 +44,30 @@ function canvas(w, h) {
   return c;
 }
 
-function tintedLogo(kind) {
-  if (tintCache.has(kind)) return tintCache.get(kind);
-  const c = canvas(logo.width, logo.height);
+function foilLogo(kind, solid) {
+  const key = `${kind}:${solid || ''}`;
+  if (tintCache.has(key)) return tintCache.get(key);
+  const w = 1400;
+  const h = Math.round((w * logo.height) / logo.width);
+  const c = canvas(w, h);
   const x = c.getContext('2d');
-  const g = x.createLinearGradient(0, 0, c.width * 0.35, c.height);
-  const stops = kind === 'gold'
-    ? [[0, '#f6e3a2'], [0.35, '#c99a43'], [0.6, '#f0d27f'], [1, '#8a6420']]
-    : [[0, '#ffffff'], [0.35, '#aab2ba'], [0.6, '#f1f4f6'], [1, '#7c848c']];
-  stops.forEach(([o, col]) => g.addColorStop(o, col));
-  x.fillStyle = g;
-  x.fillRect(0, 0, c.width, c.height);
+  if (solid) {
+    x.fillStyle = solid;
+  } else {
+    const g = x.createLinearGradient(0, 0, w * 0.4, h);
+    const palettes = {
+      gold: [[0, '#f8e7ad'], [0.35, '#d9aa4e'], [0.6, '#f3d98c'], [1, '#b38630']],
+      ink: [[0, '#2e343a'], [0.35, '#0d1013'], [0.6, '#454c53'], [1, '#0a0c0e']],
+      silver: [[0, '#ffffff'], [0.35, '#c5ccd3'], [0.6, '#f4f6f8'], [1, '#9aa3ab']],
+    };
+    const stops = palettes[kind] || palettes.silver;
+    stops.forEach(([o, col]) => g.addColorStop(o, col));
+    x.fillStyle = g;
+  }
+  x.fillRect(0, 0, w, h);
   x.globalCompositeOperation = 'destination-in';
-  x.drawImage(logo, 0, 0);
-  tintCache.set(kind, c);
+  x.drawImage(logo, 0, 0, w, h);
+  tintCache.set(key, c);
   return c;
 }
 
@@ -68,9 +87,9 @@ function sparkle(ctx, x, y, r, color, alpha = 1) {
 }
 
 // Текст, который сжимается до maxW, чтобы не вылезать за видимую часть цилиндра.
-function fitText(ctx, text, x, y, maxW, size, weight, family, color, spacing = 0) {
+function fitText(ctx, text, x, y, maxW, size, weight, family, fill, spacing = 0) {
   let s = size;
-  ctx.fillStyle = color;
+  ctx.fillStyle = fill;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   for (; s > 12; s -= 2) {
@@ -80,6 +99,23 @@ function fitText(ctx, text, x, y, maxW, size, weight, family, color, spacing = 0
   }
   ctx.fillText(text, x, y);
   ctx.letterSpacing = '0px';
+}
+
+function mixHex(a, b, t) {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  return '#' + pa.map((v, i) => Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+
+function luminance(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Светлые этикетки печатаются тёмными чернилами — иначе белый текст теряется. */
+function darkInk(skin) {
+  return skin.id !== 'brand' && luminance(mixHex(skin.a, skin.b, 0.55)) > 0.3;
 }
 
 function rand(seed) {
@@ -96,18 +132,28 @@ function seedOf(id) {
   return h >>> 0;
 }
 
-function drawLabel(skin) {
+/** Рисует этикетку. pass: 'color' — альбедо, 'mr' — карта шероховатости/металличности. */
+function drawLabel(x, skin, pass) {
   const W = 2048;
   const H = 1024;
   const cx = W / 2;
-  const c = canvas(W, H);
-  const x = c.getContext('2d');
   const brand = skin.id === 'brand';
+  const color = pass === 'color';
   const r = rand(seedOf(skin.id));
+  const dark = darkInk(skin);
+  const kind = brand ? 'gold' : dark ? 'ink' : 'silver';
+  const foilFill = color ? (brand ? '#e9c871' : dark ? '#101316' : '#eef1f4') : MR.foil;
+  const logoCanvas = color ? foilLogo(kind) : foilLogo('mr', MR.foil);
+  const textMain = dark ? '#0b0d0a' : '#ffffff';
+  const textSoft = dark ? 'rgba(8,10,8,0.88)' : 'rgba(255,255,255,0.9)';
 
-  if (brand) {
+  // основа
+  if (!color) {
+    x.fillStyle = MR.plastic;
+    x.fillRect(0, 0, W, H);
+  } else if (brand) {
     const g = x.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#17171a');
+    g.addColorStop(0, '#18181b');
     g.addColorStop(1, '#070708');
     x.fillStyle = g;
     x.fillRect(0, 0, W, H);
@@ -115,127 +161,137 @@ function drawLabel(skin) {
     x.fillStyle = skin.c;
     x.fillRect(0, 0, W, H);
     // «полярное сияние», как на рендере упаковки
-    const g1 = x.createRadialGradient(cx - 160, H * 0.55, 20, cx - 160, H * 0.55, 760);
-    g1.addColorStop(0, skin.a + 'e6');
-    g1.addColorStop(0.45, skin.b + 'cc');
-    g1.addColorStop(1, skin.c + '00');
+    const g1 = x.createRadialGradient(cx - 160, H * 0.55, 20, cx - 160, H * 0.55, 780);
+    g1.addColorStop(0, `${mixHex(skin.a, skin.b, 0.55)}ee`);
+    g1.addColorStop(0.45, `${skin.b}d0`);
+    g1.addColorStop(1, `${skin.c}00`);
     x.fillStyle = g1;
     x.fillRect(0, 0, W, H);
     const g2 = x.createLinearGradient(cx - 600, 0, cx + 500, H);
     g2.addColorStop(0, 'rgba(255,255,255,0)');
-    g2.addColorStop(0.42, 'rgba(255,255,255,0.16)');
+    g2.addColorStop(0.42, 'rgba(255,255,255,0.17)');
     g2.addColorStop(0.55, 'rgba(255,255,255,0)');
     x.fillStyle = g2;
     x.fillRect(0, 0, W, H);
   }
 
-  // звёздная пыль
-  for (let i = 0; i < 260; i++) {
-    x.globalAlpha = 0.15 + r() * 0.5;
-    x.fillStyle = brand ? '#e9c871' : '#ffffff';
-    const s = r() * 2.2 + 0.6;
-    x.fillRect(r() * W, r() * H, s, s);
+  // звёздная пыль (только в альбедо)
+  if (color) {
+    for (let i = 0; i < 300; i++) {
+      x.globalAlpha = 0.12 + r() * 0.5;
+      x.fillStyle = brand ? '#e9c871' : '#ffffff';
+      const s = r() * 2.2 + 0.6;
+      x.fillRect(r() * W, r() * H, s, s);
+    }
+    x.globalAlpha = 1;
   }
-  x.globalAlpha = 1;
 
-  const ink = brand ? '#e9c871' : '#ffffff';
-  const logoKind = brand ? 'gold' : 'silver';
-
-  // золотые линии сверху и снизу
-  x.strokeStyle = brand ? 'rgba(233,200,113,0.55)' : 'rgba(255,255,255,0.35)';
+  // линии сверху и снизу — фольга
+  x.strokeStyle = color ? (brand ? 'rgba(233,200,113,0.7)' : dark ? 'rgba(10,12,10,0.55)' : 'rgba(255,255,255,0.55)') : MR.foil;
   x.lineWidth = 3;
   x.beginPath(); x.moveTo(0, 56); x.lineTo(W, 56); x.moveTo(0, H - 56); x.lineTo(W, H - 56); x.stroke();
 
+  const white = color ? textSoft : MR.ink;
   if (brand) {
-    fitText(x, 'DISCOVER STAR', cx, 250, 640, 66, 600, DISPLAY, '#e9c871', 8);
-    fitText(x, 'ЛИНЕЙКА STELLAR', cx, 312, 560, 30, 700, SANS, 'rgba(255,255,255,0.8)', 10);
+    fitText(x, 'DISCOVER STAR', cx, 250, 640, 66, 600, DISPLAY, foilFill, 8);
+    fitText(x, 'ЛИНЕЙКА STELLAR', cx, 312, 560, 30, 700, SANS, color ? 'rgba(255,255,255,0.78)' : MR.ink, 10);
   } else {
-    fitText(x, 'PREMIUM CIGAR HOOKAH TOBACCO', cx, 168, 620, 28, 700, SANS, 'rgba(255,255,255,0.88)', 3);
-    fitText(x, 'С АРОМАТОМ:', cx, 206, 400, 28, 700, SANS, 'rgba(255,255,255,0.88)', 3);
-    fitText(x, skin.label, cx, 298, 640, 82, 700, DISPLAY, '#ffffff', 1);
-    fitText(x, `«${skin.star.toUpperCase()}»`, cx, 372, 560, 58, 500, DISPLAY, skin.a, 4);
+    fitText(x, 'PREMIUM CIGAR HOOKAH TOBACCO', cx, 168, 620, 28, 700, SANS, white, 3);
+    fitText(x, 'С АРОМАТОМ:', cx, 206, 400, 28, 700, SANS, white, 3);
+    fitText(x, skin.label, cx, 298, 640, 82, 700, DISPLAY, color ? textMain : MR.ink, 1);
+    fitText(x, `«${skin.star.toUpperCase()}»`, cx, 372, 560, 58, 500, DISPLAY, color ? (dark ? textMain : skin.a) : MR.foil, 4);
   }
 
-  // логотип
+  // логотип — фольга
   const lw = 600;
   const lh = (lw * logo.height) / logo.width;
-  x.drawImage(tintedLogo(logoKind), cx - lw / 2, brand ? 392 : 418, lw, lh);
+  x.drawImage(logoCanvas, cx - lw / 2, brand ? 392 : 418, lw, lh);
 
-  fitText(x, '25 г', cx, H - 118, 300, 36, 700, SANS, 'rgba(255,255,255,0.7)', 6);
+  fitText(x, '25 г', cx, H - 118, 300, 36, 700, SANS, color ? (dark ? 'rgba(8,10,8,0.78)' : 'rgba(255,255,255,0.72)') : MR.ink, 6);
 
   // задняя сторона: маленький знак
   const sw = 260;
   const sh = (sw * logo.height) / logo.width;
-  x.drawImage(tintedLogo(logoKind), 150 - sw / 2, H / 2 - sh / 2 - 30, sw, sh);
-  fitText(x, 'DISCOVER STAR', 150, H / 2 + sh / 2 + 20, 280, 26, 600, DISPLAY, ink, 4);
-  for (const [sx, sy, sr] of [[cx - 420, 250, 26], [cx + 410, 360, 20], [cx - 380, 760, 22], [cx + 330, 820, 30], [cx - 120, 640, 14]]) {
-    sparkle(x, sx, sy, sr, '#ffffff', brand ? 0.55 : 0.95);
+  x.drawImage(logoCanvas, 150 - sw / 2, H / 2 - sh / 2 - 30, sw, sh);
+  fitText(x, 'DISCOVER STAR', 150, H / 2 + sh / 2 + 20, 280, 26, 600, DISPLAY, foilFill, 4);
+
+  if (color) {
+    for (const [sx, sy, sr] of [[cx - 420, 250, 26], [cx + 410, 360, 20], [cx - 380, 760, 22], [cx + 330, 820, 30], [cx - 120, 640, 14]]) {
+      sparkle(x, sx, sy, sr, '#ffffff', brand ? 0.55 : 0.95);
+    }
   }
 
-  // чёрная панель для предупреждения (текст — заглушка, формулировку и графику даёт юрист)
+  // чёрная панель для предупреждения (текст — заглушка: формулировку и графику даёт юрист)
   const px = cx + 640;
-  x.fillStyle = '#050505';
+  x.fillStyle = color ? '#050505' : MR.panel;
   x.fillRect(px, 70, 330, H - 140);
-  x.strokeStyle = 'rgba(255,255,255,0.35)';
+  x.strokeStyle = color ? 'rgba(255,255,255,0.35)' : MR.ink;
   x.lineWidth = 3;
   x.strokeRect(px + 14, 84, 302, H - 168);
-  fitText(x, 'КУРЕНИЕ', px + 165, 330, 270, 54, 800, SANS, '#ffffff', 2);
-  fitText(x, 'ВРЕДИТ', px + 165, 396, 270, 54, 800, SANS, '#ffffff', 2);
-  fitText(x, 'ВАШЕМУ', px + 165, 462, 270, 54, 800, SANS, '#ffffff', 2);
-  fitText(x, 'ЗДОРОВЬЮ', px + 165, 528, 270, 54, 800, SANS, '#ffffff', 2);
-  x.strokeStyle = '#ffffff';
+  const warn = color ? '#ffffff' : MR.ink;
+  fitText(x, 'КУРЕНИЕ', px + 165, 330, 270, 54, 800, SANS, warn, 2);
+  fitText(x, 'ВРЕДИТ', px + 165, 396, 270, 54, 800, SANS, warn, 2);
+  fitText(x, 'ВАШЕМУ', px + 165, 462, 270, 54, 800, SANS, warn, 2);
+  fitText(x, 'ЗДОРОВЬЮ', px + 165, 528, 270, 54, 800, SANS, warn, 2);
+  x.strokeStyle = warn;
   x.lineWidth = 5;
   x.beginPath(); x.arc(px + 165, 720, 62, 0, Math.PI * 2); x.stroke();
-  fitText(x, '18+', px + 165, 744, 90, 56, 800, SANS, '#ffffff', 0);
-
-  return c;
+  fitText(x, '18+', px + 165, 744, 90, 56, 800, SANS, warn, 0);
 }
 
-function drawLid(skin) {
+function drawLid(x, skin, pass) {
   const S = 1024;
-  const c = canvas(S, S);
-  const x = c.getContext('2d');
   const brand = skin.id === 'brand';
+  const color = pass === 'color';
   const r = rand(seedOf(skin.id) ^ 0x9e3779b9);
 
-  if (brand) {
+  if (!color) {
+    x.fillStyle = MR.plastic;
+    x.fillRect(0, 0, S, S);
+  } else if (brand) {
     const g = x.createRadialGradient(S / 2, S / 2, 40, S / 2, S / 2, S / 2);
-    g.addColorStop(0, '#1b1b1f');
+    g.addColorStop(0, '#1d1d21');
     g.addColorStop(1, '#070708');
     x.fillStyle = g;
+    x.fillRect(0, 0, S, S);
   } else {
     const g = x.createRadialGradient(S * 0.42, S * 0.4, 30, S / 2, S / 2, S * 0.62);
-    g.addColorStop(0, skin.a);
+    g.addColorStop(0, mixHex(skin.a, skin.b, 0.55));
     g.addColorStop(0.5, skin.b);
     g.addColorStop(1, skin.c);
     x.fillStyle = g;
+    x.fillRect(0, 0, S, S);
   }
-  x.fillRect(0, 0, S, S);
 
-  for (let i = 0; i < 160; i++) {
-    x.globalAlpha = 0.15 + r() * 0.5;
-    x.fillStyle = '#ffffff';
-    const s = r() * 2.2 + 0.6;
-    x.fillRect(r() * S, r() * S, s, s);
+  if (color) {
+    for (let i = 0; i < 180; i++) {
+      x.globalAlpha = 0.12 + r() * 0.5;
+      x.fillStyle = '#ffffff';
+      const s = r() * 2.2 + 0.6;
+      x.fillRect(r() * S, r() * S, s, s);
+    }
+    x.globalAlpha = 1;
   }
-  x.globalAlpha = 1;
 
-  x.strokeStyle = brand ? 'rgba(233,200,113,0.5)' : 'rgba(255,255,255,0.35)';
+  const dark = darkInk(skin);
+  x.strokeStyle = color ? (brand ? 'rgba(233,200,113,0.65)' : dark ? 'rgba(10,12,10,0.5)' : 'rgba(255,255,255,0.5)') : MR.foil;
   x.lineWidth = 4;
   x.beginPath(); x.arc(S / 2, S / 2, S * 0.45, 0, Math.PI * 2); x.stroke();
 
   const lw = S * 0.66;
   const lh = (lw * logo.height) / logo.width;
-  x.drawImage(tintedLogo(brand ? 'gold' : 'silver'), S / 2 - lw / 2, S / 2 - lh / 2, lw, lh);
-  sparkle(x, S * 0.2, S * 0.3, 34, '#ffffff', 0.9);
-  sparkle(x, S * 0.82, S * 0.72, 28, '#ffffff', 0.85);
-  sparkle(x, S * 0.74, S * 0.2, 18, '#ffffff', 0.7);
-  return c;
+  const lidLogo = color ? foilLogo(brand ? 'gold' : dark ? 'ink' : 'silver') : foilLogo('mr', MR.foil);
+  x.drawImage(lidLogo, S / 2 - lw / 2, S / 2 - lh / 2, lw, lh);
+  if (color) {
+    sparkle(x, S * 0.2, S * 0.3, 34, '#ffffff', 0.9);
+    sparkle(x, S * 0.82, S * 0.72, 28, '#ffffff', 0.85);
+    sparkle(x, S * 0.74, S * 0.2, 18, '#ffffff', 0.7);
+  }
 }
 
-function toTexture(cv, wrap) {
+function toTexture(cv, { srgb, wrap }) {
   const t = new THREE.CanvasTexture(cv);
-  t.colorSpace = THREE.SRGBColorSpace;
+  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
   t.anisotropy = maxAniso;
   if (wrap) {
     t.wrapS = THREE.RepeatWrapping;
@@ -245,10 +301,56 @@ function toTexture(cv, wrap) {
   return t;
 }
 
+function build(id) {
+  const skin = SKINS[id];
+  const label = canvas(2048, 1024);
+  drawLabel(label.getContext('2d'), skin, 'color');
+  const mr = canvas(1024, 512);
+  const mx = mr.getContext('2d');
+  mx.scale(0.5, 0.5);
+  drawLabel(mx, skin, 'mr');
+  const lid = canvas(1024, 1024);
+  drawLid(lid.getContext('2d'), skin, 'color');
+  const lidMr = canvas(512, 512);
+  const lx = lidMr.getContext('2d');
+  lx.scale(0.5, 0.5);
+  drawLid(lx, skin, 'mr');
+  const tex = {
+    label: toTexture(label, { srgb: true, wrap: true }),
+    mr: toTexture(mr, { srgb: false, wrap: true }),
+    lid: toTexture(lid, { srgb: true }),
+    lidMr: toTexture(lidMr, { srgb: false }),
+  };
+  return tex;
+}
+
 export function getSkinTextures(id) {
-  if (!texCache.has(id)) {
-    const skin = SKINS[id];
-    texCache.set(id, { label: toTexture(drawLabel(skin), true), lid: toTexture(drawLid(skin), false) });
+  let entry = cache.get(id);
+  if (!entry) {
+    entry = build(id);
+    cache.set(id, entry);
+  } else {
+    cache.delete(id); // обновляем порядок: свежие — в конце
+    cache.set(id, entry);
   }
-  return texCache.get(id);
+  // выбрасываем самые давние, чтобы не копить сотни МБ видеопамяти
+  while (cache.size > CACHE_LIMIT) {
+    const [oldId, old] = cache.entries().next().value;
+    if (oldId === id) break;
+    Object.values(old).forEach((t) => t.dispose());
+    cache.delete(oldId);
+  }
+  return entry;
+}
+
+/** Готовит текстуры заранее (в простое), чтобы смена вкуса не подвисала. */
+export function prewarmSkins(ids, renderer) {
+  const run = () => {
+    ids.forEach((id) => {
+      const t = getSkinTextures(id);
+      if (renderer) Object.values(t).forEach((tx) => renderer.initTexture(tx));
+    });
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1200 });
+  else setTimeout(run, 200);
 }

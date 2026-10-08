@@ -3,231 +3,130 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
+import { createFXPass } from './fx.js';
+import { glintTexture, glowTexture, makeDust, makeMoon, makeNebula, makeStar, makeStars } from './cosmos.js';
 
-const NOISE = /* glsl */ `
-float hash(vec3 p){ p = fract(p*0.3183099+.1); p *= 17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
-float noise(vec3 x){
-  vec3 i = floor(x); vec3 f = fract(x); f = f*f*(3.0-2.0*f);
-  return mix(mix(mix(hash(i+vec3(0,0,0)),hash(i+vec3(1,0,0)),f.x),
-                 mix(hash(i+vec3(0,1,0)),hash(i+vec3(1,1,0)),f.x),f.y),
-             mix(mix(hash(i+vec3(0,0,1)),hash(i+vec3(1,0,1)),f.x),
-                 mix(hash(i+vec3(0,1,1)),hash(i+vec3(1,1,1)),f.x),f.y),f.z);
-}
-float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<5;i++){ s+=a*noise(p); p*=2.03; a*=.5; } return s; }
-`;
+const RING_R = 2.6;
 
-function glowTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.25, 'rgba(255,255,255,0.4)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  x.fillStyle = g;
-  x.fillRect(0, 0, 128, 128);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
-function makePlanet(gain = 1) {
-  const mat = new THREE.ShaderMaterial({
-    transparent: true,
-    uniforms: {
-      uAlpha: { value: 1 },
-      uRim: { value: new THREE.Color('#e9c871') },
-      uLight: { value: new THREE.Vector3(-0.7, 0.55, 0.5).normalize() },
-      uTime: { value: 0 },
-      uGain: { value: gain },
-    },
-    vertexShader: /* glsl */ `
-      varying vec3 vN; varying vec3 vP; varying vec3 vV;
-      void main(){
-        vP = position;
-        vN = normalize(normalMatrix * normal);
-        vec4 mv = modelViewMatrix * vec4(position,1.);
-        vV = -mv.xyz;
-        gl_Position = projectionMatrix * mv;
-      }`,
-    fragmentShader: /* glsl */ `
-      uniform float uAlpha; uniform vec3 uRim; uniform vec3 uLight; uniform float uTime; uniform float uGain;
-      varying vec3 vN; varying vec3 vP; varying vec3 vV;
-      ${NOISE}
-      void main(){
-        vec3 n = normalize(vN);
-        vec3 v = normalize(vV);
-        float h = fbm(vP*4.6 + 7.0);
-        float craters = smoothstep(.40,.62,fbm(vP*11.0));
-        float surf = mix(h, craters, .6);
-        vec3 albedo = mix(vec3(.018,.018,.022), vec3(.115,.112,.115), surf);
-        float ndl = max(dot(n, uLight), 0.);
-        float diff = pow(ndl, 1.1);
-        float fres = pow(1. - max(dot(n, v), 0.), 3.2);
-        float lit = smoothstep(-.35, .7, dot(n, uLight));
-        vec3 col = albedo * (diff*1.5 + .06);
-        col += uRim * fres * (.1 + .85*lit);
-        gl_FragColor = vec4(col * uGain, uAlpha);
-        #include <colorspace_fragment>
-      }`,
-  });
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), mat);
-  m.frustumCulled = false;
-  return m;
+/** Студийное освещение: тёмная комната с софтбоксами — даёт хрому чёткие, «рекламные» блики. */
+function studioEnvironment(renderer) {
+  const pm = new THREE.PMREMGenerator(renderer);
+  const env = new THREE.Scene();
+  env.background = new THREE.Color(0x0c0d11);
+  const box = (color, k, w, h, dir, dist = 12) => {
+    const m = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(k), side: THREE.DoubleSide }),
+    );
+    m.position.set(...dir).normalize().multiplyScalar(dist);
+    m.lookAt(0, 0, 0);
+    env.add(m);
+  };
+  box('#fff0d8', 8, 9, 7, [-0.7, 0.75, 0.55]); // основной мягкий источник сверху-слева
+  box('#9cc3ff', 6, 2.2, 11, [1, 0.15, 0.35]); // холодная вертикальная полоса справа
+  box('#ffffff', 5, 14, 1.6, [0, 1, 0.1]); // верхняя полоса
+  box('#e9c871', 6, 6, 9, [0.65, 0.2, -1]); // золотой контровой сзади-справа
+  box('#ffd9a0', 3, 7, 4, [-1, -0.2, -0.4]); // тёплый контровой сзади-слева
+  box('#1b1d24', 1.2, 16, 16, [0, -1, 0]); // пол — слабый отсвет
+  const tex = pm.fromScene(env, 0.025).texture;
+  pm.dispose();
+  return tex;
 }
 
-export async function createScene(canvas, { lowPower }) {
+export async function createScene(canvas, { lowPower, quality: forced }) {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: lowPower, powerPreference: 'high-performance' });
-  const pr = Math.min(window.devicePixelRatio || 1, lowPower ? 1.5 : 1.75);
+  const maxPR = lowPower ? 1.5 : 1.75;
+  let pr = Math.min(window.devicePixelRatio || 1, maxPR);
   renderer.setPixelRatio(pr);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
 
   const scene = new THREE.Scene();
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  scene.environmentIntensity = 0.7;
+  scene.environment = studioEnvironment(renderer);
+  scene.environmentIntensity = 0.9;
 
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
   scene.add(camera);
 
-  // ── туманность на фоне ─────────────────────────────────────────────
-  const nebula = new THREE.Mesh(
-    new THREE.PlaneGeometry(2, 2),
-    new THREE.ShaderMaterial({
-      depthWrite: false,
-      depthTest: false,
-      uniforms: {
-        uTime: { value: 0 },
-        uScroll: { value: 0 },
-        uTint: { value: new THREE.Color('#e9c871') },
-        uRes: { value: new THREE.Vector2(1, 1) },
-      },
-      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 1., 1.); }',
-      fragmentShader: /* glsl */ `
-        uniform float uTime; uniform float uScroll; uniform vec3 uTint; uniform vec2 uRes;
-        varying vec2 vUv;
-        ${NOISE}
-        void main(){
-          vec2 uv = vUv*2.-1.; uv.x *= uRes.x/uRes.y;
-          vec3 p = vec3(uv*1.15, uTime*.018 + uScroll*.6);
-          float n = fbm(p + fbm(p*1.7 + 3.0));
-          float m = smoothstep(.38,.92,n);
-          vec3 col = vec3(.012,.012,.017);
-          col += uTint * m * .2;
-          col += vec3(.5,.38,.16) * pow(fbm(p*.55+9.), 3.) * .14;
-          float vig = dot(vUv-.5, vUv-.5);
-          col *= 1. - 1.35*vig;
-          gl_FragColor = vec4(col, 1.);
-          #include <colorspace_fragment>
-        }`,
-    }),
-  );
-  nebula.frustumCulled = false;
-  nebula.renderOrder = -10;
+  const nebula = makeNebula();
   scene.add(nebula);
+  const stars = makeStars(lowPower ? 3500 : 7500, pr);
+  stars.points.renderOrder = 5;
+  scene.add(stars.points);
 
-  // ── звёзды ────────────────────────────────────────────────────────
-  const N = lowPower ? 3500 : 7500;
-  const pos = new Float32Array(N * 3);
-  const size = new Float32Array(N);
-  const seed = new Float32Array(N);
-  const col = new Float32Array(N * 3);
-  const palette = [new THREE.Color('#d6e0ff'), new THREE.Color('#ffffff'), new THREE.Color('#ffe6a8'), new THREE.Color('#e9c871')];
-  for (let i = 0; i < N; i++) {
-    pos[i * 3] = (Math.random() - 0.5) * 150;
-    pos[i * 3 + 1] = (Math.random() - 0.5) * 95;
-    pos[i * 3 + 2] = 24 - Math.random() * 300;
-    size[i] = Math.random() ** 3 * 2.4 + 0.5;
-    seed[i] = Math.random();
-    const c = palette[Math.floor(Math.random() ** 1.6 * palette.length)];
-    col.set([c.r, c.g, c.b], i * 3);
-  }
-  const starGeo = new THREE.BufferGeometry();
-  starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  starGeo.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
-  starGeo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
-  starGeo.setAttribute('aCol', new THREE.BufferAttribute(col, 3));
-  const starMat = new THREE.ShaderMaterial({
-    transparent: true,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-    uniforms: { uTime: { value: 0 }, uPR: { value: pr } },
-    vertexShader: /* glsl */ `
-      attribute float aSize; attribute float aSeed; attribute vec3 aCol;
-      uniform float uTime; uniform float uPR; varying vec3 vCol; varying float vTw;
-      void main(){
-        vec4 mv = modelViewMatrix * vec4(position,1.);
-        gl_Position = projectionMatrix * mv;
-        vTw = .55 + .45*sin(uTime*(.6+aSeed*1.8) + aSeed*40.);
-        gl_PointSize = clamp(aSize * uPR * (150. / max(-mv.z, .5)), 0., 16.*uPR);
-        vCol = aCol;
-      }`,
-    fragmentShader: /* glsl */ `
-      varying vec3 vCol; varying float vTw;
-      void main(){
-        float d = length(gl_PointCoord - .5);
-        float a = pow(smoothstep(.5, 0., d), 2.2);
-        gl_FragColor = vec4(vCol * vTw, a * vTw);
-        #include <colorspace_fragment>
-      }`,
-  });
-  const stars = new THREE.Points(starGeo, starMat);
-  stars.frustumCulled = false;
-  scene.add(stars);
-
-  // ── объекты, привязанные к камере (камера летит сквозь звёзды) ───────
+  // всё, что привязано к камере (камера летит сквозь звёзды, а кадр остаётся стабильным)
   const rigCam = new THREE.Group();
   camera.add(rigCam);
 
-  const key = new THREE.DirectionalLight(0xfff1d0, 0.55);
+  const key = new THREE.DirectionalLight(0xfff1d0, 0.45);
   key.position.set(-3, 4, 2);
-  const rim = new THREE.DirectionalLight(0xe9c871, 0.8);
+  const rim = new THREE.DirectionalLight(0xe9c871, 0.7);
   rim.position.set(4, 1, -3);
   rigCam.add(key, rim);
 
-  const planetGain = lowPower ? 0.5 : 1; // без постобработки (ACES) шейдер выглядит светлее
-  const heroPlanet = makePlanet(planetGain);
-  rigCam.add(heroPlanet);
-  const horizon = makePlanet(planetGain);
-  rigCam.add(horizon);
+  const dust = makeDust(lowPower ? 40 : 90, pr);
+  rigCam.add(dust.points);
 
-  const jar = createJar();
+  const moon = makeMoon({ detail: !lowPower });
+  rigCam.add(moon.group);
+  const horizon = makeMoon({ detail: false });
+  horizon.uniforms.uLight.value.set(-0.35, 0.9, 0.25).normalize();
+  rigCam.add(horizon.group);
+
+  const star = makeStar({ detail: !lowPower });
+  rigCam.add(star.group);
+
+  const glow = glowTexture();
+  const jar = createJar({ glowMap: glow });
   rigCam.add(jar.rig);
 
-  // кольцо звёзд-вкусов вокруг банки
+  // карта звёзд-вкусов: орбита и метки вокруг банки
   const ringHost = new THREE.Group();
   const ringTilt = new THREE.Group();
   const ring = new THREE.Group();
   ringHost.add(ringTilt);
   ringTilt.add(ring);
   rigCam.add(ringHost);
-  const glow = glowTexture();
-  const orbs = FLAVORS.map((f, i) => {
-    const g = new THREE.Group();
-    const a = (i / FLAVORS.length) * Math.PI * 2;
-    g.position.set(Math.sin(a) * 2.6, 0, Math.cos(a) * 2.6);
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 32, 16),
-      new THREE.MeshStandardMaterial({ color: f.b, emissive: f.a, emissiveIntensity: 0.9, roughness: 0.5 }),
-    );
-    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: glow, color: f.a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.55,
-    }));
-    halo.scale.setScalar(0.5);
-    g.add(mesh, halo);
-    ring.add(g);
-    return { g, mesh, halo };
-  });
   ringTilt.rotation.x = 0.5;
   ringTilt.rotation.z = -0.12;
 
-  // ── постобработка ─────────────────────────────────────────────────
+  const orbitPts = [];
+  for (let i = 0; i < 160; i++) {
+    const a = (i / 160) * Math.PI * 2;
+    orbitPts.push(new THREE.Vector3(Math.sin(a) * RING_R, 0, Math.cos(a) * RING_R));
+  }
+  const orbit = new THREE.LineLoop(
+    new THREE.BufferGeometry().setFromPoints(orbitPts),
+    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.16, depthWrite: false }),
+  );
+  ring.add(orbit);
+
+  const glint = glintTexture();
+  const orbs = FLAVORS.map((f, i) => {
+    const a = (i / FLAVORS.length) * Math.PI * 2;
+    const g = new THREE.Group();
+    g.position.set(Math.sin(a) * RING_R, 0, Math.cos(a) * RING_R);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glint, color: f.a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.8,
+    }));
+    sprite.scale.setScalar(0.5);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glow, color: f.a, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0.4,
+    }));
+    halo.scale.setScalar(0.9);
+    g.add(halo, sprite);
+    ring.add(g);
+    return { g, sprite, halo };
+  });
+
+  // ── постобработка и качество ───────────────────────────────────────
   let composer = null;
   let bloom = null;
+  let fx = null;
+  let level = lowPower ? 0 : 2; // 2 — всё, 1 — без блума, 0 — минимум
+  if (forced !== undefined && forced !== null) level = Number(forced);
   if (!lowPower) {
     const rt = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 });
     composer = new EffectComposer(renderer, rt);
@@ -235,19 +134,42 @@ export async function createScene(canvas, { lowPower }) {
     bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.3, 0.6, 0.93);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
+    fx = createFXPass();
+    composer.addPass(fx);
   }
 
-  function resize() {
+  function size() {
     const w = window.innerWidth;
     const h = window.innerHeight;
+    renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
+    composer?.setPixelRatio?.(pr);
     composer?.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     nebula.material.uniforms.uRes.value.set(w, h);
+    dust.mat.uniforms.uRes.value.set(w * pr, h * pr);
+    stars.mat.uniforms.uPR.value = pr;
+    dust.mat.uniforms.uPR.value = pr;
   }
-  resize();
-  window.addEventListener('resize', resize);
+
+  function setQuality(l) {
+    level = l;
+    if (bloom) bloom.enabled = l >= 2;
+    if (fx) fx.enabled = l >= 1;
+    const next = Math.min(window.devicePixelRatio || 1, l >= 2 ? maxPR : l === 1 ? 1.25 : 1);
+    if (next !== pr) {
+      pr = next;
+      size();
+    }
+  }
+  size();
+  setQuality(level);
+  window.addEventListener('resize', size);
+
+  const tmp = new THREE.Vector3();
+  const tmp2 = new THREE.Vector3();
+  const starPos = new THREE.Vector3();
 
   /** s — сглаженное состояние, посчитанное в main.js */
   function update(s) {
@@ -255,32 +177,55 @@ export async function createScene(canvas, { lowPower }) {
     camera.position.z = 6 - s.fly * 200;
     camera.rotation.y = -s.px * 0.05;
     camera.rotation.x = s.py * 0.035;
-    const fov = 40 + s.warp * 16;
+    const fov = 40 + s.warp * 16 + (1 - s.intro) * 9;
     if (Math.abs(camera.fov - fov) > 0.01) {
       camera.fov = fov;
       camera.updateProjectionMatrix();
     }
-    bloom && (bloom.strength = 0.3 + s.warp * 0.5);
+    if (bloom) bloom.strength = 0.3 + s.warp * 0.45 + s.flash * 0.35;
+    if (fx) {
+      fx.uniforms.uWarp.value = level >= 2 ? s.warp : s.warp * 0.4;
+      fx.uniforms.uFlash.value = s.flash;
+      fx.uniforms.uFlashCol.value.copy(s.tint);
+    }
 
     nebula.material.uniforms.uTime.value = time;
     nebula.material.uniforms.uScroll.value = s.fly;
     nebula.material.uniforms.uTint.value.copy(s.tint);
-    starMat.uniforms.uTime.value = time;
-    stars.rotation.z = time * 0.004 + s.fly * 0.3;
+    stars.mat.uniforms.uTime.value = time;
+    stars.points.rotation.z = time * 0.004 + s.fly * 0.3;
 
-    // планета в хиро
-    heroPlanet.position.set(s.planet.x, s.planet.y, s.planet.z);
-    heroPlanet.scale.setScalar(s.planet.s);
-    heroPlanet.material.uniforms.uAlpha.value = s.planet.a;
-    heroPlanet.material.uniforms.uRim.value.copy(s.tint);
-    heroPlanet.visible = s.planet.a > 0.005;
-    heroPlanet.rotation.y = time * 0.01;
+    dust.mat.uniforms.uTime.value = time;
+    dust.mat.uniforms.uOffset.value += s.dt * (0.22 + s.warp * 16);
+    dust.mat.uniforms.uTint.value.copy(s.tint);
 
-    horizon.position.set(0, s.horizon.y, s.horizon.z);
-    horizon.scale.setScalar(s.horizon.s);
-    horizon.material.uniforms.uAlpha.value = s.horizon.a;
-    horizon.material.uniforms.uRim.value.copy(s.tint);
-    horizon.visible = s.horizon.a > 0.005;
+    // звезда
+    star.group.visible = s.star.vis > 0.003;
+    star.group.position.set(s.star.x, s.star.y, s.star.z);
+    star.core.scale.setScalar(s.star.s);
+    star.corona.scale.setScalar(s.star.s * 7.5);
+    star.streak.scale.set(s.star.s * 22, s.star.s * 0.6, 1);
+    star.uniforms.uTime.value = time;
+    star.uniforms.uK.value = s.star.vis;
+    star.uniforms.uHot.value.copy(s.star.hot);
+    star.uniforms.uCool.value.copy(s.star.cool);
+    starPos.set(s.star.x, s.star.y, s.star.z);
+
+    // луна: свет приходит от звезды
+    moon.group.visible = s.moon.a > 0.005;
+    moon.group.position.set(s.moon.x, s.moon.y, s.moon.z);
+    moon.group.scale.setScalar(s.moon.s);
+    moon.group.rotation.y = time * 0.008;
+    moon.uniforms.uAlpha.value = s.moon.a;
+    moon.uniforms.uRim.value.copy(s.moonRim);
+    tmp.copy(starPos).sub(moon.group.position);
+    if (tmp.lengthSq() > 1e-3) moon.uniforms.uLight.value.copy(tmp.normalize());
+
+    horizon.group.visible = s.horizon.a > 0.005;
+    horizon.group.position.set(0, s.horizon.y, -20);
+    horizon.group.scale.setScalar(15);
+    horizon.uniforms.uAlpha.value = s.horizon.a;
+    horizon.uniforms.uRim.value.copy(s.moonRim);
 
     // банка
     const j = s.jar;
@@ -289,23 +234,60 @@ export async function createScene(canvas, { lowPower }) {
     jar.rig.scale.setScalar(j.s);
     jar.rig.rotation.set(j.rx, 0, j.rz);
     jar.spin.rotation.y = j.ry;
+    jar.setAccent(s.tint);
+    rim.color.lerp(s.tint, 0.03);
 
-    // кольцо вкусов
+    // карта вкусов
     ringHost.visible = s.ring.vis > 0.01;
     ringHost.position.set(j.x, j.y, -6.6);
     ringHost.scale.setScalar(Math.max(0.001, s.ring.vis) * j.s * 0.8);
     ring.rotation.y = s.ring.rot;
+    orbit.material.opacity = 0.16 * s.ring.vis;
     orbs.forEach((o, i) => {
       const on = i === s.ring.active;
-      const k = on ? 1.8 : 1.0;
-      o.mesh.scale.lerp(tmp3.set(k, k, k), 0.12);
-      o.halo.scale.setScalar(THREE.MathUtils.lerp(o.halo.scale.x, on ? 1.3 : 0.5, 0.12));
-      o.halo.material.opacity = THREE.MathUtils.lerp(o.halo.material.opacity, on ? 0.9 : 0.4, 0.12);
+      o.sprite.scale.setScalar(THREE.MathUtils.lerp(o.sprite.scale.x, on ? 1.35 : 0.5, 0.12));
+      o.halo.scale.setScalar(THREE.MathUtils.lerp(o.halo.scale.x, on ? 2.1 : 0.9, 0.12));
+      o.halo.material.opacity = THREE.MathUtils.lerp(o.halo.material.opacity, on ? 0.75 : 0.28, 0.12);
+      o.sprite.material.opacity = THREE.MathUtils.lerp(o.sprite.material.opacity, on ? 1 : 0.7, 0.12);
     });
 
+    camera.updateMatrixWorld(true);
     (composer || { render: () => renderer.render(scene, camera) }).render();
   }
-  const tmp3 = new THREE.Vector3();
 
-  return { renderer, jar, update, resize };
+  /** Экранные координаты меток орбиты: [{x, y, d}], d от 0 (сзади) до 1 (спереди). */
+  function orbScreen(out) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    ringHost.getWorldPosition(tmp2);
+    const hostView = tmp2.clone().applyMatrix4(camera.matrixWorldInverse).z;
+    const span = RING_R * ringHost.scale.x * 1.2;
+    orbs.forEach((o, i) => {
+      o.g.getWorldPosition(tmp);
+      const view = tmp.clone().applyMatrix4(camera.matrixWorldInverse).z;
+      tmp.project(camera);
+      const e = out[i] || (out[i] = { x: 0, y: 0, d: 0 });
+      e.x = (tmp.x * 0.5 + 0.5) * w;
+      e.y = (-tmp.y * 0.5 + 0.5) * h;
+      e.d = THREE.MathUtils.clamp((view - hostView) / span * 0.5 + 0.5, 0, 1);
+    });
+    return out;
+  }
+
+  /** Экранная точка привязки на банке (для выносок). */
+  function anchorScreen(name, out) {
+    const a = jar.anchors[name];
+    a.getWorldPosition(tmp);
+    tmp.project(camera);
+    out.x = (tmp.x * 0.5 + 0.5) * window.innerWidth;
+    out.y = (-tmp.y * 0.5 + 0.5) * window.innerHeight;
+    return out;
+  }
+
+  async function compile() {
+    camera.updateMatrixWorld(true);
+    try { await renderer.compileAsync(scene, camera); } catch { /* не критично: скомпилируется при первом кадре */ }
+  }
+
+  return { renderer, camera, jar, update, resize: size, setQuality, orbScreen, anchorScreen, compile, get level() { return level; } };
 }
