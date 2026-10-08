@@ -11,7 +11,7 @@ const MR = {
   plastic: 'rgb(255,128,0)',
   ink: 'rgb(255,112,0)',
   panel: 'rgb(255,150,0)',
-  foil: 'rgb(255,84,196)',
+  foil: 'rgb(255,118,100)',
 };
 
 const CACHE_LIMIT = 4;
@@ -135,10 +135,16 @@ function seedOf(id) {
   return h >>> 0;
 }
 
-/** Рисует этикетку. pass: 'color' — альбедо, 'mr' — карта шероховатости/металличности. */
+// Размер этикетки на модели: окружность 5,67, высота 1,18 (отношение 4,82), поэтому полотно 4096x851 повторяет её
+// пропорции и буквы не растянуты. Весь рисунок строится от высоты: единица авторского пространства равна 1/1024 высоты.
+export const LABEL_W = 4096;
+export const LABEL_H = 851;
+
+/** Рисует этикетку. pass: 'color' — альбедо, 'mr' — карта шероховатости/металличности. Координаты полотна: LABEL_W x LABEL_H. */
 function drawLabel(x, skin, pass) {
-  const W = 2048;
-  const H = 1024;
+  const W = LABEL_W;
+  const H = LABEL_H;
+  const kk = H / 1024; // масштаб авторских значений
   const cx = W / 2;
   const brand = skin.id === 'brand';
   const color = pass === 'color';
@@ -150,7 +156,7 @@ function drawLabel(x, skin, pass) {
   const textMain = dark ? '#0b0d0a' : '#ffffff';
   const textSoft = dark ? 'rgba(8,10,8,0.88)' : 'rgba(255,255,255,0.9)';
 
-  // основа
+  // основа на всю окружность
   if (!color) {
     x.fillStyle = MR.plastic;
     x.fillRect(0, 0, W, H);
@@ -163,14 +169,14 @@ function drawLabel(x, skin, pass) {
   } else {
     x.fillStyle = skin.c;
     x.fillRect(0, 0, W, H);
-    // «полярное сияние», как на рендере упаковки
-    const g1 = x.createRadialGradient(cx - 160, H * 0.55, 20, cx - 160, H * 0.55, 780);
+    // «полярное сияние» за передней стороной
+    const g1 = x.createRadialGradient(cx - 120, H * 0.55, 20, cx - 120, H * 0.55, 900);
     g1.addColorStop(0, `${mixHex(skin.a, skin.b, 0.55)}ee`);
     g1.addColorStop(0.45, `${skin.b}d0`);
     g1.addColorStop(1, `${skin.c}00`);
     x.fillStyle = g1;
     x.fillRect(0, 0, W, H);
-    const g2 = x.createLinearGradient(cx - 600, 0, cx + 500, H);
+    const g2 = x.createLinearGradient(cx - 560, 0, cx + 460, H);
     g2.addColorStop(0, 'rgba(255,255,255,0)');
     g2.addColorStop(0.42, 'rgba(255,255,255,0.17)');
     g2.addColorStop(0.55, 'rgba(255,255,255,0)');
@@ -180,7 +186,7 @@ function drawLabel(x, skin, pass) {
 
   // звёздная пыль (только в альбедо)
   if (color) {
-    for (let i = 0; i < 300; i++) {
+    for (let i = 0; i < 520; i++) {
       x.globalAlpha = 0.12 + r() * 0.5;
       x.fillStyle = brand ? '#e9c871' : '#ffffff';
       const s = r() * 2.2 + 0.6;
@@ -189,57 +195,64 @@ function drawLabel(x, skin, pass) {
     x.globalAlpha = 1;
   }
 
-  // линии сверху и снизу — фольга
+  // линии сверху и снизу по всей окружности — фольга
   x.strokeStyle = color ? (brand ? 'rgba(233,200,113,0.7)' : dark ? 'rgba(10,12,10,0.55)' : 'rgba(255,255,255,0.55)') : MR.foil;
   x.lineWidth = 3;
-  x.beginPath(); x.moveTo(0, 56); x.lineTo(W, 56); x.moveTo(0, H - 56); x.lineTo(W, H - 56); x.stroke();
+  x.beginPath(); x.moveTo(0, 56 * kk); x.lineTo(W, 56 * kk); x.moveTo(0, H - 56 * kk); x.lineTo(W, H - 56 * kk); x.stroke();
 
   const white = color ? textSoft : MR.ink;
+
+  // передняя сторона: авторская раскладка в координатах 2048x1024, одинаковый масштаб по обеим осям
+  x.save();
+  x.translate(cx - 1024 * kk, 0);
+  x.scale(kk, kk);
+  const acx = 1024;
   if (brand) {
-    fitText(x, 'DISCOVER STAR', cx, 250, 640, 62, 800, DISPLAY, foilFill, 4);
-    fitText(x, 'ЛИНЕЙКА STELLAR', cx, 312, 560, 30, 700, SANS, color ? 'rgba(255,255,255,0.78)' : MR.ink, 10);
+    fitText(x, 'DISCOVER STAR', acx, 236, 1000, 98, 800, DISPLAY, foilFill, 5);
+    fitText(x, 'ЛИНЕЙКА STELLAR', acx, 318, 820, 46, 700, SANS, color ? 'rgba(255,255,255,0.78)' : MR.ink, 10);
   } else {
-    fitText(x, 'PREMIUM CIGAR HOOKAH TOBACCO', cx, 168, 620, 28, 700, SANS, white, 3);
-    fitText(x, 'С АРОМАТОМ:', cx, 206, 400, 28, 700, SANS, white, 3);
-    fitText(x, skin.label, cx, 298, 640, 78, 800, DISPLAY, color ? textMain : MR.ink, 0);
-    fitText(x, `«${skin.star.toUpperCase()}»`, cx, 372, 560, 54, 700, DISPLAY, color ? (dark ? textMain : skin.a) : MR.foil, 2);
+    fitText(x, 'PREMIUM CIGAR HOOKAH TOBACCO', acx, 142, 1040, 44, 700, SANS, white, 3);
+    fitText(x, 'С АРОМАТОМ:', acx, 196, 620, 44, 700, SANS, white, 3);
+    fitText(x, skin.label, acx, 322, 1020, 112, 800, DISPLAY, color ? textMain : MR.ink, 0);
+    fitText(x, `«${skin.star.toUpperCase()}»`, acx, 404, 860, 66, 700, DISPLAY, color ? (dark ? textMain : mixHex(skin.a, '#ffffff', 0.72)) : MR.foil, 2);
   }
-
-  // логотип — фольга
-  const lw = 600;
+  const lw = 740;
   const lh = (lw * logo.height) / logo.width;
-  x.drawImage(logoCanvas, cx - lw / 2, brand ? 392 : 418, lw, lh);
-
-  fitText(x, '25 г', cx, H - 118, 300, 36, 700, SANS, color ? (dark ? 'rgba(8,10,8,0.78)' : 'rgba(255,255,255,0.72)') : MR.ink, 6);
-
-  // задняя сторона: маленький знак
-  const sw = 260;
-  const sh = (sw * logo.height) / logo.width;
-  x.drawImage(logoCanvas, 150 - sw / 2, H / 2 - sh / 2 - 30, sw, sh);
-  fitText(x, 'DISCOVER STAR', 150, H / 2 + sh / 2 + 20, 280, 24, 700, DISPLAY, foilFill, 2);
-
+  x.drawImage(logoCanvas, acx - lw / 2, brand ? 392 : 448, lw, lh);
+  fitText(x, '25 г', acx, 1024 - 72, 340, 50, 700, SANS, color ? (dark ? 'rgba(8,10,8,0.78)' : 'rgba(255,255,255,0.72)') : MR.ink, 6);
   if (color) {
-    for (const [sx, sy, sr] of [[cx - 420, 250, 26], [cx + 410, 360, 20], [cx - 380, 760, 22], [cx + 330, 820, 30], [cx - 120, 640, 14]]) {
+    for (const [sx, sy, sr] of [[acx - 420, 250, 26], [acx + 410, 360, 20], [acx - 380, 760, 22], [acx + 330, 820, 30], [acx - 120, 640, 14]]) {
       sparkle(x, sx, sy, sr, '#ffffff', brand ? 0.55 : 0.95);
     }
   }
+  x.restore();
 
-  // чёрная панель для предупреждения (текст — заглушка: формулировку и графику даёт юрист)
-  const px = cx + 640;
+  // задняя сторона: маленький знак
+  const bx = W * 0.14;
+  const sw = 380;
+  const sh = (sw * logo.height) / logo.width;
+  x.drawImage(logoCanvas, bx - sw / 2, H / 2 - sh / 2 - 30 * kk, sw, sh);
+  fitText(x, 'DISCOVER STAR', bx, H / 2 + sh / 2 + 24, 400, 30, 700, DISPLAY, foilFill, 2);
+
+  // чёрная панель для предупреждения справа от лицевой стороны (текст — заглушка: формулировку и графику даёт юрист)
+  const pw = 560;
+  const ph = H - 140 * kk;
+  const px = cx + 1060 - pw / 2;
+  const py = 70 * kk;
   x.fillStyle = color ? '#050505' : MR.panel;
-  x.fillRect(px, 70, 330, H - 140);
+  x.fillRect(px, py, pw, ph);
   x.strokeStyle = color ? 'rgba(255,255,255,0.35)' : MR.ink;
   x.lineWidth = 3;
-  x.strokeRect(px + 14, 84, 302, H - 168);
+  x.strokeRect(px + 14, py + 14, pw - 28, ph - 28);
   const warn = color ? '#ffffff' : MR.ink;
-  fitText(x, 'КУРЕНИЕ', px + 165, 330, 270, 54, 800, SANS, warn, 2);
-  fitText(x, 'ВРЕДИТ', px + 165, 396, 270, 54, 800, SANS, warn, 2);
-  fitText(x, 'ВАШЕМУ', px + 165, 462, 270, 54, 800, SANS, warn, 2);
-  fitText(x, 'ЗДОРОВЬЮ', px + 165, 528, 270, 54, 800, SANS, warn, 2);
+  const pc = px + pw / 2;
+  ['КУРЕНИЕ', 'ВРЕДИТ', 'ВАШЕМУ', 'ЗДОРОВЬЮ'].forEach((line, i) => {
+    fitText(x, line, pc, py + 150 + i * 78, pw - 80, 66, 800, SANS, warn, 2);
+  });
   x.strokeStyle = warn;
-  x.lineWidth = 5;
-  x.beginPath(); x.arc(px + 165, 720, 62, 0, Math.PI * 2); x.stroke();
-  fitText(x, '18+', px + 165, 744, 90, 56, 800, SANS, warn, 0);
+  x.lineWidth = 6;
+  x.beginPath(); x.arc(pc, py + ph - 150, 82, 0, Math.PI * 2); x.stroke();
+  fitText(x, '18+', pc, py + ph - 150 + 26, 120, 72, 800, SANS, warn, 0);
 }
 
 function drawLid(x, skin, pass) {
@@ -304,26 +317,23 @@ function toTexture(cv, { srgb, wrap }) {
   return t;
 }
 
-// Этикетка рисуется в «авторском» пространстве 2048x1024 и масштабируется под реальный размер текстуры.
-// 2560x1280 даёт около 410 текселей на единицу длины окружности: чёткий текст и при плотности пикселей 2,
-// при этом один комплект занимает около 33 МБ видеопамяти (3072x1536 был бы около 47 МБ).
+// Этикетка рисуется сразу в размере полотна 4096x860 (около 650 текселей на единицу окружности: чёткий текст и при
+// плотности пикселей 2); карта шероховатости вдвое меньше. Один комплект занимает около 25 МБ видеопамяти.
 function build(id) {
   const skin = SKINS[id];
-  const label = canvas(2560, 1280);
-  const lc = label.getContext('2d');
-  lc.scale(1.25, 1.25);
-  drawLabel(lc, skin, 'color');
-  const mr = canvas(1280, 640);
+  const label = canvas(LABEL_W, LABEL_H);
+  drawLabel(label.getContext('2d'), skin, 'color');
+  const mr = canvas(LABEL_W / 2, LABEL_H / 2);
   const mc = mr.getContext('2d');
-  mc.scale(0.625, 0.625);
+  mc.scale(0.5, 0.5);
   drawLabel(mc, skin, 'mr');
-  const lid = canvas(1280, 1280);
+  const lid = canvas(1536, 1536);
   const ld = lid.getContext('2d');
-  ld.scale(1.25, 1.25);
+  ld.scale(1.5, 1.5);
   drawLid(ld, skin, 'color');
-  const lidMr = canvas(640, 640);
+  const lidMr = canvas(768, 768);
   const lm = lidMr.getContext('2d');
-  lm.scale(0.625, 0.625);
+  lm.scale(0.75, 0.75);
   drawLid(lm, skin, 'mr');
   return {
     label: toTexture(label, { srgb: true, wrap: true }),

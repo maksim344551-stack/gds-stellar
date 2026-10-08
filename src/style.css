@@ -62,8 +62,6 @@ main, .footer { position: relative; z-index: 2; }
 .co-text { font-size: 0.9rem; font-weight: 500; color: var(--ink); text-align: right; }
 .co-line { width: 2.6rem; height: 1px; margin: 0 8px; background: var(--gold); }
 .co-dot { width: 5px; height: 5px; background: var(--gold); }
-.orbit-label { position: absolute; left: 0; top: 0; padding-left: 12px; font-size: 0.85rem; font-weight: 500; color: var(--ink); opacity: 0; white-space: nowrap; }
-.orbit-label.on { color: var(--fa); font-weight: 600; }
 
 /* кнопки */
 .btn {
@@ -80,7 +78,9 @@ main, .footer { position: relative; z-index: 2; }
 
 /* навигация */
 .nav { position: fixed; inset: 0 0 auto 0; z-index: 60; height: var(--nav-h); display: flex; align-items: center; gap: 2rem; padding: 0 var(--edge); border-bottom: 1px solid transparent; transition: background-color 0.3s, border-color 0.3s; }
-.nav.solid { background: rgba(8, 8, 10, 0.94); border-bottom-color: var(--line); }
+.nav.solid { background: transparent; }
+.nav { transition: background-color 0.3s, border-color 0.3s, transform 0.4s var(--ease); }
+.nav.away { transform: translateY(-100%); }
 .nav-logo .logo-mark { width: 4rem; }
 .nav-links { display: flex; gap: 2.2rem; margin-left: auto; }
 .nav-links a { position: relative; padding: 8px 0; font-size: 1rem; font-weight: 500; color: var(--ink-2); text-decoration: none; transition: color 0.25s; }
@@ -260,7 +260,6 @@ main, .footer { position: relative; z-index: 2; }
   .f-list { flex-wrap: nowrap; overflow-x: auto; gap: 18px; right: 0; bottom: 3svh; scrollbar-width: none; }
   .f-list li { flex: 0 0 auto; }
   .sorts, .contacts { grid-template-columns: 1fr; }
-  .orbit-label { display: none; }
   .group dl > div { grid-template-columns: 1fr; gap: 2px; }
 }
 @media (prefers-reduced-motion: reduce) {

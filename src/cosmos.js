@@ -22,23 +22,6 @@ float fbm(vec3 p){ float a=.5,s=0.; for(int i=0;i<5;i++){ s+=a*noise(p); p*=2.03
 float fbm3(vec3 p){ float a=.5,s=0.; for(int i=0;i<3;i++){ s+=a*noise(p); p*=2.03; a*=.5; } return s; }
 `;
 
-/** Чёткая маленькая точка: маркер звезды на орбите. */
-export function dotTexture() {
-  const S = 64;
-  const c = document.createElement('canvas');
-  c.width = c.height = S;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.62, 'rgba(255,255,255,1)');
-  g.addColorStop(0.72, 'rgba(255,255,255,0)');
-  x.fillStyle = g;
-  x.fillRect(0, 0, S, S);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-}
-
 /* ── туманность ───────────────────────────────────────────────────── */
 
 /**
@@ -236,6 +219,116 @@ export function makeMoon(url, maxAniso = 8) {
   const group = new THREE.Group();
   group.add(mesh);
   return { group, uniforms };
+}
+
+/* ── газовый гигант ───────────────────────────────────────────────── */
+
+// Фото облачных полос (src/assets/giant.jpg) сделано бесшовным по горизонтали и повторяется дважды по долготе:
+// так пропорции вихрей остаются естественными. Планета целиком вращается (в отличие от луны, снимок покрывает всю сферу).
+export function makeGiant(url, maxAniso = 8) {
+  const map = new THREE.TextureLoader().load(url);
+  map.colorSpace = THREE.SRGBColorSpace;
+  map.wrapS = THREE.RepeatWrapping;
+  map.anisotropy = maxAniso;
+  const uniforms = {
+    uMap: { value: map },
+    uAlpha: { value: 0 },
+    uRim: { value: new THREE.Color('#cdac62') },
+    uLight: { value: new THREE.Vector3(-0.55, 0.45, 0.7).normalize() },
+    uGain: { value: 0.72 },
+  };
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms,
+    vertexShader: /* glsl */ `
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vUv = uv;
+        vN = normalize(normalMatrix * normal);
+        vec4 mv = modelViewMatrix * vec4(position, 1.);
+        vV = -mv.xyz;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D uMap; uniform float uAlpha; uniform vec3 uRim; uniform vec3 uLight; uniform float uGain;
+      varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+      void main(){
+        vec3 tex = texture2D(uMap, vec2(vUv.x * 2., vUv.y)).rgb;
+        vec3 n = normalize(vN);
+        vec3 v = normalize(vV);
+        float ndv = max(dot(n, v), 0.);
+        float ndl = dot(n, uLight);
+        float lit = smoothstep(-.12, .75, ndl);
+        vec3 col = tex * (.05 + 1.15 * lit) * (.45 + .55 * pow(ndv, .45));
+        col += uRim * pow(1. - ndv, 3.2) * (.05 + .8 * smoothstep(-.1, .8, ndl));
+        gl_FragColor = vec4(col * uGain, uAlpha);
+        ${OUT}
+      }`,
+  });
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), material);
+  mesh.frustumCulled = false;
+  const group = new THREE.Group();
+  const tilt = new THREE.Group();
+  tilt.rotation.z = 0.2;
+  tilt.add(mesh);
+  group.add(tilt);
+  return { group, mesh, uniforms };
+}
+
+/* ── планеты вкусов ───────────────────────────────────────────────── */
+
+// Десять фото планет (src/assets/planets). Каждая рисуется отдельной плоскостью в пространстве сцены; смену вкуса
+// ведёт scene.js: прежняя планета уходит вдаль и в сторону, следующая приближается из глубины с другой стороны.
+// Чёрный фон снимков добавляется к космосу аддитивно, поэтому границ у кадра нет; у краёв снимка яркость плавно гаснет.
+export function makePlanets(urls, renderer) {
+  const loader = new THREE.TextureLoader();
+  const cache = new Array(urls.length).fill(null);
+  const blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 255]), 1, 1);
+  blank.colorSpace = THREE.SRGBColorSpace;
+  blank.needsUpdate = true;
+  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+
+  /** Текстура планеты i: грузится при первом обращении, на видеокарту уходит сразу после загрузки (без рывка при показе). */
+  function get(i) {
+    if (!cache[i]) {
+      const t = loader.load(urls[i], () => renderer.initTexture(t));
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = aniso;
+      cache[i] = t;
+    }
+    return cache[i];
+  }
+
+  /** Снимок загружен и уже на видеокарте: только тогда планета может выходить в кадр. */
+  const ready = (i) => i < 0 || !!cache[i]?.image;
+
+  const geometry = new THREE.PlaneGeometry(1, 1);
+  function slot() {
+    const uniforms = { uMap: { value: blank }, uAlpha: { value: 0 }, uGain: { value: 0.85 } };
+    const material = new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      uniforms,
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uMap; uniform float uAlpha; uniform float uGain;
+        varying vec2 vUv;
+        void main(){
+          float m = smoothstep(0., .07, vUv.x) * smoothstep(1., .93, vUv.x) * smoothstep(0., .05, vUv.y) * smoothstep(1., .95, vUv.y);
+          gl_FragColor = vec4(texture2D(uMap, vUv).rgb * m * uGain, uAlpha);
+          ${OUT}
+        }`,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.frustumCulled = false;
+    mesh.visible = false;
+    return { mesh, uniforms };
+  }
+  const cur = slot();
+  const next = slot();
+  return { cur, next, get, ready, blank };
 }
 
 /* ── звезда-солнце: ядро с грануляцией и мягкая корона ────────────── */

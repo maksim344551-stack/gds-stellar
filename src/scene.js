@@ -2,9 +2,13 @@ import * as THREE from 'three';
 import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
 import moonUrl from './assets/moon.jpg';
-import { dotTexture, makeMoon, makeNebula, makeStar, makeStars } from './cosmos.js';
+import giantUrl from './assets/giant.jpg';
 
-const RING_R = 2.6;
+const PLANET_URLS = Object.entries(import.meta.glob('./assets/planets/p*.jpg', { eager: true, query: '?url', import: 'default' }))
+  .sort(([a], [b]) => a.localeCompare(b))
+  .map(([, url]) => url);
+import { makeGiant, makeMoon, makePlanets, makeNebula, makeStar, makeStars } from './cosmos.js';
+
 
 /** Студийное освещение: тёмная комната с софтбоксами. Хром получает чёткие, «предметные» блики. */
 function studioEnvironment(renderer) {
@@ -75,44 +79,15 @@ export async function createScene(canvas, { lowPower, light }) {
 
   const moon = makeMoon(moonUrl, renderer.capabilities.getMaxAnisotropy());
   rigCam.add(moon.group);
+  const planets = makePlanets(PLANET_URLS, renderer);
+  rigCam.add(planets.cur.mesh, planets.next.mesh);
+  const giant = makeGiant(giantUrl, renderer.capabilities.getMaxAnisotropy());
+  rigCam.add(giant.group);
   const star = makeStar();
   rigCam.add(star.group);
 
-  const jar = createJar();
+  const jar = await createJar();
   rigCam.add(jar.rig);
-
-  // карта звёзд-вкусов: тонкая орбита и маркеры вокруг банки
-  const ringHost = new THREE.Group();
-  const ringTilt = new THREE.Group();
-  const ring = new THREE.Group();
-  ringHost.add(ringTilt);
-  ringTilt.add(ring);
-  rigCam.add(ringHost);
-  ringTilt.rotation.x = 0.5;
-  ringTilt.rotation.z = -0.12;
-
-  const orbitPts = [];
-  for (let i = 0; i < 192; i++) {
-    const a = (i / 192) * Math.PI * 2;
-    orbitPts.push(new THREE.Vector3(Math.sin(a) * RING_R, 0, Math.cos(a) * RING_R));
-  }
-  const orbit = new THREE.LineLoop(
-    new THREE.BufferGeometry().setFromPoints(orbitPts),
-    new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2, depthWrite: false }),
-  );
-  ring.add(orbit);
-
-  const dot = dotTexture();
-  const orbs = FLAVORS.map((f, i) => {
-    const a = (i / FLAVORS.length) * Math.PI * 2;
-    const g = new THREE.Group();
-    g.position.set(Math.sin(a) * RING_R, 0, Math.cos(a) * RING_R);
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: dot, color: f.a, depthWrite: false, transparent: true, opacity: 0.85 }));
-    sprite.scale.setScalar(0.075);
-    g.add(sprite);
-    ring.add(g);
-    return { g, sprite };
-  });
 
   let detail = lowPower || light ? 0 : 1;
   let lightLevel = light ? 3 : 0; // 1 проще шейдеры, 2 меньше пикселей, 3 минимум
@@ -140,7 +115,6 @@ export async function createScene(canvas, { lowPower, light }) {
   const UP = new THREE.Vector3(0, 1, 0);
   const moonM = new THREE.Matrix4();
   const tmp = new THREE.Vector3();
-  const tmp2 = new THREE.Vector3();
   const starPos = new THREE.Vector3();
 
   /** Упрощает сцену на слабом устройстве (уровень 1, 2 или 3). Применяется в начале следующего кадра, прямо перед отрисовкой. */
@@ -205,6 +179,55 @@ export async function createScene(canvas, { lowPower, light }) {
     tmp.copy(starPos).sub(moon.group.position);
     if (tmp.lengthSq() > 1e-3) moon.uniforms.uLight.value.copy(tmp.normalize());
 
+    // Небесные тела в линейке вкусов: газовый гигант (индекс -1) и десять планет. Каждая смена, включая переход
+    // от упаковки к первому вкусу, одна и та же: прежнее тело уходит вдаль и в сторону, следующее приближается
+    // из глубины с противоположной стороны. Кривые у них разные, поэтому движение не зеркальное.
+    const pl = s.planet;
+    const P = planets;
+    const narrow = camera.aspect < 0.95;
+    const H = narrow ? 11 : 17;
+    const W = H * (1100 / 1387);
+    const bx = (narrow ? 0 : 7.4) + s.px * 0.5;
+    const by = (narrow ? 2.4 : 0.4) + Math.sin(time * 0.25) * 0.12 - s.py * 0.3;
+    const bz = narrow ? -20 : -22;
+    const sm = THREE.MathUtils.smoothstep;
+    const m = pl.mix;
+    const out = sm(m, 0, 0.8);
+    const outE = out * out * (3 - 2 * out);
+    const inn = sm(m, 0.1, 1);
+    const inE = 1 - Math.pow(1 - inn, 3);
+    const fOut = 1 - sm(m, 0.1, 0.8);
+    const fIn = sm(m, 0.15, 0.75);
+    const fade = pl.alpha * (narrow ? 0.8 : 1);
+
+    giant.group.visible = false;
+    const place = (id, slot, dx, dy, dz, rz, alpha) => {
+      if (id < 0) {
+        // гигант: свой путь по прокрутке (s.giant), поверх него то же смещение
+        const a = s.giant.a * alpha;
+        giant.group.visible = a > 0.004;
+        giant.group.position.set(s.giant.x + dx, s.giant.y + dy, s.giant.z + dz);
+        giant.group.rotation.z = rz;
+        giant.group.scale.setScalar(s.giant.s);
+        giant.mesh.rotation.y = time * 0.014;
+        giant.uniforms.uAlpha.value = a;
+        giant.uniforms.uRim.value.copy(s.moonRim);
+        slot.mesh.visible = false;
+        return;
+      }
+      const a = fade * alpha;
+      slot.mesh.visible = a > 0.004;
+      if (!slot.mesh.visible) return;
+      slot.mesh.position.set(bx + dx, by + dy, bz + dz);
+      slot.mesh.rotation.z = rz;
+      slot.mesh.scale.set(W, H, 1);
+      slot.uniforms.uMap.value = P.get(id);
+      slot.uniforms.uAlpha.value = a;
+    };
+    place(pl.a, P.cur, -7 * outE, 2 * outE, -9 * outE, 0.18 * outE, fOut);
+    if (m > 0.001) place(pl.b, P.next, 8 * (1 - inE), -3.4 * (1 - inE), -12 * (1 - inE), -0.22 * (1 - inE), fIn);
+    else P.next.mesh.visible = false;
+
     // банка
     const j = s.jar;
     jar.rig.visible = j.vis;
@@ -214,40 +237,9 @@ export async function createScene(canvas, { lowPower, light }) {
     jar.spin.rotation.y = j.ry;
     rim.color.lerp(s.tint, 0.03);
 
-    // карта вкусов
-    ringHost.visible = s.ring.vis > 0.01;
-    ringHost.position.set(j.x, j.y, -6.6);
-    ringHost.scale.setScalar(Math.max(0.001, s.ring.vis) * j.s * 0.8);
-    ring.rotation.y = s.ring.rot;
-    orbit.material.opacity = 0.2 * s.ring.vis;
-    orbs.forEach((o, i) => {
-      const on = i === s.ring.active;
-      o.sprite.scale.setScalar(THREE.MathUtils.lerp(o.sprite.scale.x, on ? 0.14 : 0.075, 0.14));
-      o.sprite.material.opacity = THREE.MathUtils.lerp(o.sprite.material.opacity, on ? 1 : 0.7, 0.14);
-    });
-
     camera.updateMatrixWorld(true);
     nebula.render(renderer);
     renderer.render(scene, camera);
-  }
-
-  /** Экранные координаты меток орбиты: [{x, y, d}], d от 0 (сзади) до 1 (спереди). */
-  function orbScreen(out) {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    ringHost.getWorldPosition(tmp2);
-    const hostView = tmp2.clone().applyMatrix4(camera.matrixWorldInverse).z;
-    const span = RING_R * ringHost.scale.x * 1.2;
-    orbs.forEach((o, i) => {
-      o.g.getWorldPosition(tmp);
-      const view = tmp.clone().applyMatrix4(camera.matrixWorldInverse).z;
-      tmp.project(camera);
-      const e = out[i] || (out[i] = { x: 0, y: 0, d: 0 });
-      e.x = (tmp.x * 0.5 + 0.5) * w;
-      e.y = (-tmp.y * 0.5 + 0.5) * h;
-      e.d = THREE.MathUtils.clamp(((view - hostView) / span) * 0.5 + 0.5, 0, 1);
-    });
-    return out;
   }
 
   /** Экранная точка привязки на банке (для выносок). */
@@ -262,8 +254,13 @@ export async function createScene(canvas, { lowPower, light }) {
 
   async function compile() {
     camera.updateMatrixWorld(true);
+    // скрытые объекты (планеты, гигант, луна, звезда) иначе компилировались бы при первом показе: подвисание кадра на скролле
+    const hidden = [];
+    scene.traverse((o) => { if (!o.visible) hidden.push(o); });
+    hidden.forEach((o) => { o.visible = true; });
     try { await renderer.compileAsync(scene, camera); } catch { /* скомпилируется при первом кадре */ }
+    hidden.forEach((o) => { o.visible = false; });
   }
 
-  return { renderer, camera, jar, update, resize: size, debug: { moon: moon.group, star: star.group, stars: stars.points, jar: jar.rig, nebula: nebula.mesh }, enterLightMode, orbScreen, anchorScreen, compile, get pixelRatio() { return pr; }, get lightLevel() { return lightLevel; } };
+  return { renderer, camera, jar, planets, update, resize: size, debug: { moon: moon.group, star: star.group, stars: stars.points, jar: jar.rig, nebula: nebula.mesh }, enterLightMode, anchorScreen, compile, get pixelRatio() { return pr; }, get lightLevel() { return lightLevel; } };
 }

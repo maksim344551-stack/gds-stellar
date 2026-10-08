@@ -91,15 +91,6 @@ const fButtons = $$('button', el.fList);
 const swapEls = [el.fName, el.fRu, el.fDesc, el.fAstro];
 swapEls.forEach((e) => e.classList.add('f-swap'));
 
-const orbitLabels = FLAVORS.map((f) => {
-  const d = document.createElement('div');
-  d.className = 'orbit-label';
-  d.textContent = f.star;
-  el.overlay.append(d);
-  return d;
-});
-const orbPos = [];
-
 const calloutDefs = [{ k: 'lid', t: 'Крышка с полусферой' }, { k: 'body', t: 'Обечайка' }, { k: 'base', t: '25 г табака' }];
 const callouts = calloutDefs.map((c) => {
   const d = document.createElement('div');
@@ -148,9 +139,10 @@ const cur = {
   tint: new THREE.Color(BRAND.a),
   moonRim: new THREE.Color('#cdac62'),
   moon: { x: 3.4, y: -4, z: -12, s: 5.2, a: 0, g: 1, r: 0 },
+  giant: { x: 11, y: -9, z: -22, s: 7, a: 0 },
+  planet: { a: -1, b: -1, mix: 0, alpha: 1 }, // a, b: -1 газовый гигант, 0..9 планеты вкусов
   star: { x: 10, y: 0.6, z: -17, s: 1.7, core: 0, vis: 0, hot: GOLD_HOT.clone(), cool: GOLD_COOL.clone() },
   jar: { x: 1.8, y: -3, s: 0.6, ry: 0, rx: 0.36, rz: -0.22, vis: false },
-  ring: { vis: 0, rot: 0, active: 0 },
 };
 const tintTarget = new THREE.Color(BRAND.a);
 const hotTarget = GOLD_HOT.clone();
@@ -158,7 +150,6 @@ const coolTarget = GOLD_COOL.clone();
 const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
 let skinId = 'brand';
 let flavorIdx = 0;
-let ringTarget = 0;
 let swapTimer = 0;
 let accentReset = false;
 let spinTween = null;
@@ -233,13 +224,30 @@ function goSkin(id, instant = false) {
   });
 }
 
+// Небесные тела: каждая смена идёт одним и тем же 2,2-секундным переходом. Если цель изменилась на ходу, текущий
+// переход доигрывается целиком, а следом сразу идёт переход к последней цели (промежуточные пропускаются).
+let stageTween = null;
+let stageWait = 0;
+function requestStage(want) {
+  const p = cur.planet;
+  if (stageTween || p.b !== p.a || want === p.b) return;
+  if (reduced) { p.a = p.b = want; return; }
+  // планета выходит в кадр только когда её снимок уже на видеокарте (не дольше 2 с), иначе переход «висит» на пустом месте
+  if (sc && !sc.planets.ready(want) && stageWait < 120) { sc.planets.get(want); stageWait += 1; return; }
+  stageWait = 0;
+  p.b = want;
+  p.mix = 0;
+  stageTween = tween({
+    duration: 2200,
+    ease: (x) => x,
+    onUpdate: (v) => { p.mix = v; },
+    onComplete: () => { p.a = p.b; p.mix = 0; stageTween = null; },
+  });
+}
+
 function setFlavor(i) {
   if (i === flavorIdx && skinId === FLAVORS[i].id) return;
-  const n = FLAVORS.length;
-  const delta = ((((i - flavorIdx + n / 2) % n) + n) % n) - n / 2;
-  ringTarget -= delta * ((Math.PI * 2) / n);
   flavorIdx = i;
-  cur.ring.active = i;
   showFlavor(i);
   goSkin(FLAVORS[i].id);
 }
@@ -283,7 +291,8 @@ function targets(y) {
   const flavEnd = L.flavTop + L.flavH - vh;
   const exit = sstep(flavEnd, flavEnd + vh * 0.95, y);
   const iv = easeOut(cur.intro);
-  const c = narrow ? 0 : -0.3;
+  // банка стоит справа от оси взгляда: чтобы лицевая сторона смотрела точно на покупателя, её доворачивают на угол линии взгляда
+  const face = narrow ? 0 : -Math.atan2(1.9, 6.6);
 
   const t = { prodP, flavT, flavP, exit, hero, narrow };
 
@@ -292,28 +301,32 @@ function targets(y) {
     ? { x: lerp(0.6, -10, hero), y: lerp(-7.4, 3, hero) - (1 - iv) * 2, z: lerp(-12, -30, hero), s: 4.2, a: 1 - hero, g: 0.55, r: -0.16 * hero }
     : { x: lerp(3.5, -10, hero), y: lerp(-3.6, 3, hero) - (1 - iv) * 2.4, z: lerp(-12, -30, hero), s: lerp(5.2, 4.4, hero) * lerp(0.92, 1, iv), a: (1 - hero) * clamp(iv * 1.6), g: 1, r: -0.16 * hero };
 
+  // газовый гигант: поднимается справа снизу, когда луна уходит, и растворяется перед линейкой вкусов
+  const gA = hero;
+  t.giant = narrow
+    ? { x: lerp(5.5, 4, prodP), y: lerp(-9.5, -6, prodP), z: -20, s: 5.2, a: gA * 0.7 }
+    : { x: lerp(10.8, 8.8, prodP), y: lerp(-9, 2.2, prodP), z: -22, s: 7, a: gA };
+
   // звезда: за краем луны в первом экране, тускнеет в упаковке, встаёт за банкой в линейке
   const sHero = narrow ? { x: 7, y: 0.4, z: -17, s: 0.9, c: 0, k: 1.1 } : { x: 9.1, y: 1.5, z: -17, s: 1.15, c: 0, k: 1.1 };
   const sProd = { x: -12.5, y: 6.8, z: -26, s: 0.55, c: 0, k: 0 };
-  const sFlav = narrow ? { x: 0.4, y: 2.2, z: -18, s: 2.1, c: 0, k: 0.7 } : { x: 3.6, y: 0.3, z: -18, s: 2.7, c: 0.45, k: 0.7 };
+  const sFlav = narrow ? { x: 0.4, y: 2.2, z: -18, s: 2.1, c: 0, k: 0 } : { x: 3.6, y: 0.3, z: -18, s: 2.7, c: 0, k: 0 };
   const a = (p, q, k) => ({ x: lerp(p.x, q.x, k), y: lerp(p.y, q.y, k), z: lerp(p.z, q.z, k), s: lerp(p.s, q.s, k), c: lerp(p.c, q.c, k), k: lerp(p.k, q.k, k) });
   const s2 = a(a(sHero, sProd, hero), sFlav, flavT);
   t.star = { ...s2, vis: s2.k * (1 - exit) * clamp(iv * 1.4) };
 
   // банка
   const sway = Math.sin(cur.time * 0.45) * 0.5 + pointer.x * 0.35;
-  const swayAmp = lerp(1, 0.3, hero);
-  const prodEnd = Math.PI * 2 + c;
+  const swayAmp = lerp(lerp(0.45, 0.25, hero), 0.1, flavT);
   t.jar = {
     x: narrow ? 0 : lerp(1.8, 1.9, hero),
     y: (narrow ? lerp(1.4, 1.25, hero) : 0) + exit * 8 - (1 - iv) * 1.2,
     s: (narrow ? 0.62 : 1.12) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
-    ry: lerp(0, prodEnd, prodP) + sway * swayAmp + exit * Math.PI * 1.2,
-    rx: 0.36 - pointer.y * 0.08,
-    rz: lerp(-0.22, -0.12, flavT),
+    ry: lerp(0, Math.PI * 2, prodP) + face + sway * swayAmp + exit * Math.PI * 1.2,
+    rx: lerp(0.36, 0.26, flavT) - pointer.y * 0.06,
+    rz: lerp(-0.22, -0.07, flavT),
     vis: iv > 0.02 && exit < 0.998,
   };
-  t.ringVis = sstep(L.flavTop - vh * 0.2, L.flavTop + vh * 0.25, y) * (1 - exit) * (narrow ? 0 : 1);
   return t;
 }
 
@@ -342,6 +355,9 @@ function frame(now) {
     el.navLinks.forEach((a) => (a.dataset.sec === sec ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current')));
   }
   el.nav.classList.toggle('solid', y > 40);
+  // ниже 3D-сцены шапка без фона: чтобы не накладываться на текст, она уезжает вверх при прокрутке вниз и возвращается при прокрутке вверх
+  if (y > prevY + 0.5 && y > L.blendTop - L.vh * 0.5) el.nav.classList.add('away');
+  else if (y < prevY - 0.5 || y <= L.blendTop - L.vh * 0.5) el.nav.classList.remove('away');
 
   // ниже сцены лежат сплошные блоки: 3D не рисуем, пока он полностью закрыт
   const sceneVisible = y < L.blendTop;
@@ -355,20 +371,20 @@ function frame(now) {
   pointer.y = lerp(pointer.y, pointer.ty, k(4));
   const t = targets(y);
 
+  cur.planet.alpha = lerp(cur.planet.alpha, 1 - t.exit, k(5));
   cur.fly = lerp(cur.fly, clamp(y / Math.max(1, L.docH - L.vh)), k(5));
   cur.warp = lerp(cur.warp, clamp(Math.abs(vel) / 5000), k(4));
   cur.px = pointer.x;
   cur.py = pointer.y;
   cur.tint.lerp(tintTarget, k(3));
 
+  for (const key of ['x', 'y', 'z', 's', 'a']) cur.giant[key] = lerp(cur.giant[key], t.giant[key], k(6));
   for (const key of ['x', 'y', 'z', 's', 'a', 'g', 'r']) cur.moon[key] = lerp(cur.moon[key], t.moon[key], k(6));
   for (const key of ['x', 'y', 'z', 's', 'core', 'vis']) cur.star[key] = lerp(cur.star[key], key === 'core' ? t.star.c : t.star[key], k(5));
   cur.star.hot.lerp(hotTarget, k(3));
   cur.star.cool.lerp(coolTarget, k(3));
   for (const key of ['x', 'y', 's', 'ry', 'rx', 'rz']) cur.jar[key] = lerp(cur.jar[key], t.jar[key], k(key === 'ry' ? 5 : 6));
   cur.jar.vis = t.jar.vis;
-  cur.ring.vis = lerp(cur.ring.vis, t.ringVis, k(5));
-  cur.ring.rot = lerp(cur.ring.rot, ringTarget, k(4.5));
 
   // какая «шкура» у банки
   const inFlavors = t.flavT > 0.5 && !(t.exit > 0.6);
@@ -381,6 +397,9 @@ function frame(now) {
     if (!accentReset) { accentReset = true; setAccent(BRAND); }
   } else if (t.flavT <= 0.5) goSkin('brand');
 
+  // небесное тело за банкой: в линейке планета текущего вкуса, до неё газовый гигант; при вылете банки остаётся как есть
+  if (t.exit < 0.02) requestStage(inFlavors && t.jar.vis ? flavorIdx : -1);
+
   // главы «Упаковки»
   const ch = Math.min(2, Math.floor(t.prodP * 3));
   if (ch !== chapter) {
@@ -390,22 +409,6 @@ function frame(now) {
 
   if (!sc) return;
   sc.update({ ...cur, jar: { ...cur.jar, ry: cur.jar.ry + spin.v } });
-
-  // метки орбиты
-  if (cur.ring.vis > 0.04) {
-    sc.orbScreen(orbPos);
-    orbitLabels.forEach((lab, i) => {
-      const p = orbPos[i];
-      const on = i === flavorIdx;
-      const edge = p.x > innerWidth - 120 || p.x < 24 ? 0 : 1;
-      lab.style.transform = `translate3d(${p.x.toFixed(1)}px, ${(p.y - 7).toFixed(1)}px, 0)`;
-      const near = clamp((p.d - 0.52) / 0.3); // подписи только у передней половины орбиты, дальние скрыты банкой
-      lab.style.opacity = (cur.ring.vis * edge * (on ? 1 : near * 0.75)).toFixed(3);
-      lab.classList.toggle('on', on);
-    });
-  } else if (orbitLabels[0].style.opacity !== '0') {
-    orbitLabels.forEach((lab) => { lab.style.opacity = '0'; });
-  }
 
   // выноски на банке: только во второй главе «Упаковки» и на широком экране
   const wantCo = chapter === 1 && t.jar.vis && !t.narrow && t.flavT < 0.3 ? 1 : 0;
@@ -507,6 +510,13 @@ async function boot() {
     console.error('WebGL недоступен, показываем статичную версию', err);
     root.classList.add('no-webgl');
     sc = null;
+  }
+
+  // фото планет подгружаются по очереди в простое: к линейке вкусов они уже на видеокарте
+  if (sc) {
+    const queue = FLAVORS.map((_, i) => i);
+    const next = () => { if (queue.length) { sc.planets.get(queue.shift()); setTimeout(next, 700); } };
+    setTimeout(next, 2500);
   }
 
   measure();
