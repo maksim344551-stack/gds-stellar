@@ -322,7 +322,8 @@ function targets(y) {
     x: narrow ? 0 : lerp(1.8, 1.9, hero),
     y: (narrow ? lerp(1.4, 1.25, hero) : 0) + exit * 8 - (1 - iv) * 1.2,
     s: (narrow ? 0.62 : 1.12) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
-    ry: lerp(0, Math.PI * 2, prodP) + face + sway * swayAmp + exit * Math.PI * 1.2,
+    // лицевая сторона (вкус, логотип) всегда к покупателю: в «Упаковке» банка лишь плавно покачивается на ±30° и в конце главы снова смотрит прямо
+    ry: Math.sin(prodP * Math.PI * 2) * 0.52 + face + sway * swayAmp + exit * Math.PI * 1.2,
     rx: lerp(0.36, 0.26, flavT) - pointer.y * 0.06,
     rz: lerp(-0.22, -0.07, flavT),
     vis: iv > 0.02 && exit < 0.998,
