@@ -2,8 +2,9 @@ import * as THREE from 'three';
 import { SKINS } from './data.js';
 import LOGO_URL from './assets/logo-lg.png';
 
-const SANS = '"Manrope Variable", system-ui, sans-serif';
-const DISPLAY = '"Unbounded Variable", "Manrope Variable", sans-serif';
+// Один шрифт сайта. DISPLAY печатается в расширенном начертании (как логотип), SANS в обычном.
+const SANS = '"Roboto Flex Variable", system-ui, sans-serif';
+const DISPLAY = '"Roboto Flex Variable", sans-serif';
 
 // Карта «шероховатость/металличность» (G/B-каналы): пластик, чернила и фольга.
 const MR = {
@@ -13,14 +14,16 @@ const MR = {
   foil: 'rgb(255,84,196)',
 };
 
-const CACHE_LIMIT = 5;
+const CACHE_LIMIT = 4;
 let logo = null;
 let maxAniso = 8;
 const tintCache = new Map();
-const cache = new Map(); // id -> { label, mr, lid, lidMr, tex[] }
+const cache = new Map(); // id -> { label, mr, lid, lidMr }
+const pinned = new Set(); // комплекты, которые сейчас на банке: их нельзя выселять
+export const pinSkin = (id) => { pinned.clear(); pinned.add(id); };
 
 export async function loadSkinAssets(renderer) {
-  maxAniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  maxAniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
   logo = await new Promise((res, rej) => {
     const im = new Image();
     im.onload = () => res(im);
@@ -29,10 +32,9 @@ export async function loadSkinAssets(renderer) {
   });
   try {
     await Promise.all([
-      document.fonts.load(`700 40px ${DISPLAY}`),
-      document.fonts.load(`500 40px ${DISPLAY}`),
-      document.fonts.load(`600 30px ${SANS}`),
-      document.fonts.load(`800 30px ${SANS}`),
+      document.fonts.load(`800 40px ${DISPLAY}`, 'МятаDiscover'),
+      document.fonts.load(`500 40px ${SANS}`, 'Табак 25 г'),
+      document.fonts.load(`700 30px ${SANS}`, 'КУРЕНИЕ ВРЕДИТ'),
     ]);
   } catch { /* шрифты подтянутся позже, этикетка перерисуется при следующем показе */ }
 }
@@ -94,6 +96,7 @@ function fitText(ctx, text, x, y, maxW, size, weight, family, fill, spacing = 0)
   ctx.textBaseline = 'alphabetic';
   for (; s > 12; s -= 2) {
     ctx.font = `${weight} ${s}px ${family}`;
+    if ('fontStretch' in ctx) ctx.fontStretch = family === DISPLAY ? 'expanded' : 'normal'; // после font: шорткат сбрасывает ширину
     ctx.letterSpacing = `${spacing}px`;
     if (ctx.measureText(text).width <= maxW) break;
   }
@@ -193,13 +196,13 @@ function drawLabel(x, skin, pass) {
 
   const white = color ? textSoft : MR.ink;
   if (brand) {
-    fitText(x, 'DISCOVER STAR', cx, 250, 640, 66, 600, DISPLAY, foilFill, 8);
+    fitText(x, 'DISCOVER STAR', cx, 250, 640, 62, 800, DISPLAY, foilFill, 4);
     fitText(x, 'ЛИНЕЙКА STELLAR', cx, 312, 560, 30, 700, SANS, color ? 'rgba(255,255,255,0.78)' : MR.ink, 10);
   } else {
     fitText(x, 'PREMIUM CIGAR HOOKAH TOBACCO', cx, 168, 620, 28, 700, SANS, white, 3);
     fitText(x, 'С АРОМАТОМ:', cx, 206, 400, 28, 700, SANS, white, 3);
-    fitText(x, skin.label, cx, 298, 640, 82, 700, DISPLAY, color ? textMain : MR.ink, 1);
-    fitText(x, `«${skin.star.toUpperCase()}»`, cx, 372, 560, 58, 500, DISPLAY, color ? (dark ? textMain : skin.a) : MR.foil, 4);
+    fitText(x, skin.label, cx, 298, 640, 78, 800, DISPLAY, color ? textMain : MR.ink, 0);
+    fitText(x, `«${skin.star.toUpperCase()}»`, cx, 372, 560, 54, 700, DISPLAY, color ? (dark ? textMain : skin.a) : MR.foil, 2);
   }
 
   // логотип — фольга
@@ -213,7 +216,7 @@ function drawLabel(x, skin, pass) {
   const sw = 260;
   const sh = (sw * logo.height) / logo.width;
   x.drawImage(logoCanvas, 150 - sw / 2, H / 2 - sh / 2 - 30, sw, sh);
-  fitText(x, 'DISCOVER STAR', 150, H / 2 + sh / 2 + 20, 280, 26, 600, DISPLAY, foilFill, 4);
+  fitText(x, 'DISCOVER STAR', 150, H / 2 + sh / 2 + 20, 280, 24, 700, DISPLAY, foilFill, 2);
 
   if (color) {
     for (const [sx, sy, sr] of [[cx - 420, 250, 26], [cx + 410, 360, 20], [cx - 380, 760, 22], [cx + 330, 820, 30], [cx - 120, 640, 14]]) {
@@ -301,27 +304,33 @@ function toTexture(cv, { srgb, wrap }) {
   return t;
 }
 
+// Этикетка рисуется в «авторском» пространстве 2048x1024 и масштабируется под реальный размер текстуры.
+// 2560x1280 даёт около 410 текселей на единицу длины окружности: чёткий текст и при плотности пикселей 2,
+// при этом один комплект занимает около 33 МБ видеопамяти (3072x1536 был бы около 47 МБ).
 function build(id) {
   const skin = SKINS[id];
-  const label = canvas(2048, 1024);
-  drawLabel(label.getContext('2d'), skin, 'color');
-  const mr = canvas(1024, 512);
-  const mx = mr.getContext('2d');
-  mx.scale(0.5, 0.5);
-  drawLabel(mx, skin, 'mr');
-  const lid = canvas(1024, 1024);
-  drawLid(lid.getContext('2d'), skin, 'color');
-  const lidMr = canvas(512, 512);
-  const lx = lidMr.getContext('2d');
-  lx.scale(0.5, 0.5);
-  drawLid(lx, skin, 'mr');
-  const tex = {
+  const label = canvas(2560, 1280);
+  const lc = label.getContext('2d');
+  lc.scale(1.25, 1.25);
+  drawLabel(lc, skin, 'color');
+  const mr = canvas(1280, 640);
+  const mc = mr.getContext('2d');
+  mc.scale(0.625, 0.625);
+  drawLabel(mc, skin, 'mr');
+  const lid = canvas(1280, 1280);
+  const ld = lid.getContext('2d');
+  ld.scale(1.25, 1.25);
+  drawLid(ld, skin, 'color');
+  const lidMr = canvas(640, 640);
+  const lm = lidMr.getContext('2d');
+  lm.scale(0.625, 0.625);
+  drawLid(lm, skin, 'mr');
+  return {
     label: toTexture(label, { srgb: true, wrap: true }),
     mr: toTexture(mr, { srgb: false, wrap: true }),
     lid: toTexture(lid, { srgb: true }),
     lidMr: toTexture(lidMr, { srgb: false }),
   };
-  return tex;
 }
 
 export function getSkinTextures(id) {
@@ -335,22 +344,29 @@ export function getSkinTextures(id) {
   }
   // выбрасываем самые давние, чтобы не копить сотни МБ видеопамяти
   while (cache.size > CACHE_LIMIT) {
-    const [oldId, old] = cache.entries().next().value;
-    if (oldId === id) break;
+    const victim = [...cache.entries()].find(([k]) => k !== id && !pinned.has(k));
+    if (!victim) break;
+    const [oldId, old] = victim;
     Object.values(old).forEach((t) => t.dispose());
     cache.delete(oldId);
   }
   return entry;
 }
 
-/** Готовит текстуры заранее (в простое), чтобы смена вкуса не подвисала. */
-export function prewarmSkins(ids, renderer) {
-  const run = () => {
-    ids.forEach((id) => {
-      const t = getSkinTextures(id);
-      if (renderer) Object.values(t).forEach((tx) => renderer.initTexture(tx));
-    });
-  };
-  if ('requestIdleCallback' in window) requestIdleCallback(run, { timeout: 1200 });
-  else setTimeout(run, 200);
+const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(() => r(), { timeout: 800 }) : setTimeout(r, 60)));
+
+/**
+ * Готовит текстуры заранее, по одной штуке за раз (рисование и загрузка в GPU разнесены по кадрам),
+ * чтобы смена вкуса и первый скролл не давали рывков. immediate: true для заставки, иначе в простое.
+ */
+export async function warmSkins(ids, renderer, { immediate = false } = {}) {
+  for (const id of ids) {
+    await (immediate ? frame() : idle());
+    const t = getSkinTextures(id);
+    for (const tx of Object.values(t)) {
+      await frame();
+      renderer?.initTexture(tx);
+    }
+  }
 }

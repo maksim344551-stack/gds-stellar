@@ -1,7 +1,7 @@
 {
   "name": "gds-stellar",
-  "version": "1.0.0",
-  "description": "GDS Stellar — 3D-сайт кальянного табака GDS «Джедес»",
+  "version": "1.1.0",
+  "description": "GDS Stellar: 3D-сайт кальянного табака GDS «Джедес»",
   "type": "module",
   "private": true,
   "scripts": {
@@ -12,10 +12,8 @@
     "deploy:statichost": "node scripts/deploy-statichost.mjs"
   },
   "dependencies": {
-    "@fontsource-variable/manrope": "^5.3.0",
-    "@fontsource-variable/unbounded": "^5.3.0",
-    "gsap": "^3.15.0",
-    "lenis": "^1.3.26",
+    "@fontsource-variable/roboto-flex": "^5.3.0",
+    "@phosphor-icons/core": "^2.1.1",
     "three": "^0.186.1"
   },
   "devDependencies": {

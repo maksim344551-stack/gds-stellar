@@ -1,132 +1,86 @@
-import gsap from 'gsap';
-import { FLAVORS } from './data.js';
+import arrowLeft from '@phosphor-icons/core/assets/light/arrow-left-light.svg?raw';
+import arrowRight from '@phosphor-icons/core/assets/light/arrow-right-light.svg?raw';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-/** Бегущая строка с названиями звёзд: две одинаковые половины для бесшовной петли. */
-export function buildMarquee(track) {
-  const half = () => {
-    const wrap = document.createElement('div');
-    wrap.style.display = 'flex';
-    FLAVORS.forEach((f) => {
-      const s = document.createElement('span');
-      s.textContent = f.star;
-      wrap.append(s);
-    });
-    return wrap;
-  };
-  track.append(half(), half());
-}
+const ICONS = { 'arrow-left': arrowLeft, 'arrow-right': arrowRight };
 
-/** Курсор-кольцо: плавно догоняет указатель, увеличивается над кнопками и ссылками. */
-export function initCursor(el) {
-  if (matchMedia('(pointer: coarse)').matches) return;
-  let x = -100;
-  let y = -100;
-  let tx = -100;
-  let ty = -100;
-  addEventListener('pointermove', (e) => {
-    tx = e.clientX;
-    ty = e.clientY;
-    el.classList.add('on');
-  }, { passive: true });
-  document.addEventListener('pointerleave', () => el.classList.remove('on'));
-  const hot = 'a, button, input, textarea, label, [data-go], .tilt';
-  document.addEventListener('pointerover', (e) => el.classList.toggle('hot', !!e.target.closest?.(hot)));
-  const loop = () => {
-    x += (tx - x) * 0.22;
-    y += (ty - y) * 0.22;
-    el.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    requestAnimationFrame(loop);
-  };
-  loop();
-}
-
-/** Магнитные кнопки: сдвиг задаётся CSS-переменными, плавность даёт transition. */
-export function initMagnetic() {
-  if (matchMedia('(pointer: coarse)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  $$('.btn').forEach((b) => {
-    b.style.transform = 'translate(var(--tx, 0px), var(--ty, 0px))';
-    b.addEventListener('pointermove', (e) => {
-      const r = b.getBoundingClientRect();
-      b.style.setProperty('--tx', `${((e.clientX - r.left) / r.width - 0.5) * 12}px`);
-      b.style.setProperty('--ty', `${((e.clientY - r.top) / r.height - 0.5) * 8}px`);
-    });
-    b.addEventListener('pointerleave', () => {
-      b.style.setProperty('--tx', '0px');
-      b.style.setProperty('--ty', '0px');
-    });
-    b.addEventListener('pointerdown', () => { b.style.transform = 'translate(var(--tx, 0px), var(--ty, 0px)) scale(0.97)'; });
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach((t) => b.addEventListener(t, () => { b.style.transform = 'translate(var(--tx, 0px), var(--ty, 0px))'; }));
+/** Иконки Phosphor (Light) подставляются из собранных SVG-файлов пакета, не из пользовательских данных. */
+export function hydrateIcons() {
+  $$('[data-icon]').forEach((el) => {
+    const svg = ICONS[el.dataset.icon];
+    if (!svg) return;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = svg.trim();
+    const node = tpl.content.firstElementChild;
+    node.setAttribute('aria-hidden', 'true');
+    node.removeAttribute('width');
+    node.removeAttribute('height');
+    el.replaceChildren(node);
   });
 }
 
-/** Карточки с 3D-наклоном и подсветкой за курсором. */
-export function initTilt() {
-  if (matchMedia('(pointer: coarse)').matches || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  $$('.tilt').forEach((card) => {
-    const core = $('.core', card);
-    const rx = gsap.quickTo(card, 'rotationX', { duration: 0.7, ease: 'power3.out' });
-    const ry = gsap.quickTo(card, 'rotationY', { duration: 0.7, ease: 'power3.out' });
-    card.addEventListener('pointermove', (e) => {
-      const r = card.getBoundingClientRect();
-      const nx = (e.clientX - r.left) / r.width;
-      const ny = (e.clientY - r.top) / r.height;
-      ry((nx - 0.5) * 9);
-      rx(-(ny - 0.5) * 9);
-      core.style.setProperty('--mx', `${nx * 100}%`);
-      core.style.setProperty('--my', `${ny * 100}%`);
-    });
-    card.addEventListener('pointerleave', () => { rx(0); ry(0); });
-  });
-}
-
-/** Появление блоков при прокрутке: плавный подъём с проявлением из размытия. */
+/** Блоки проявляются один раз, когда попадают в экран: смещение и прозрачность, без размытия. */
 export function initReveals(reduced) {
-  if (reduced) return;
+  const items = $$('[data-reveal]');
+  if (reduced || !('IntersectionObserver' in window)) {
+    items.forEach((e) => e.classList.add('in'));
+    return;
+  }
   const io = new IntersectionObserver((entries) => {
     entries.forEach((en) => {
       if (!en.isIntersecting) return;
       const t = en.target;
       io.unobserve(t);
-      if (t.matches('[data-split]')) {
-        gsap.from($$('.word > i', t), { yPercent: 118, duration: 1.3, ease: 'expo.out', stagger: 0.07 });
-      } else {
-        const idx = [...t.parentNode.children].indexOf(t);
-        gsap.to(t, { opacity: 1, y: 0, filter: 'blur(0px)', duration: 1.2, ease: 'expo.out', delay: (idx % 4) * 0.09, onComplete: () => { t.style.filter = 'none'; } });
-      }
+      const idx = [...t.parentNode.children].filter((c) => c.hasAttribute('data-reveal')).indexOf(t);
+      t.style.transitionDelay = `${Math.max(0, idx) * 0.07}s`;
+      t.classList.add('in');
     });
-  }, { threshold: 0.16, rootMargin: '0px 0px -6% 0px' });
-  $$('[data-split]').forEach((e) => { if (!e.closest('.chapter')) io.observe(e); });
-  $$('[data-reveal]').forEach((e) => io.observe(e));
+  }, { threshold: 0.12, rootMargin: '0px 0px -5% 0px' });
+  items.forEach((e) => io.observe(e));
 }
 
-/** Форма заявки: бэкенда нет — открывает почтовый клиент с готовым письмом. */
+/** Форма заявки: бэкенда нет, поэтому по отправке открывается почтовый клиент с готовым письмом. */
 export function initForm() {
   const form = $('#lead-form');
   const note = $('#form-note');
+  const rules = [
+    { input: form.elements.name, err: $('#e-name'), ok: (i) => i.value.trim() !== '', text: 'Укажите имя' },
+    { input: form.elements.contact, err: $('#e-contact'), ok: (i) => i.value.trim() !== '', text: 'Укажите телефон или e-mail' },
+    { input: form.elements.consent, err: $('#e-consent'), ok: (i) => i.checked, text: 'Подтвердите согласие, чтобы отправить заявку' },
+  ];
+  const show = (r, bad) => {
+    r.err.textContent = bad ? r.text : '';
+    if (bad) r.input.setAttribute('aria-invalid', 'true');
+    else r.input.removeAttribute('aria-invalid');
+  };
+  rules.forEach((r) => {
+    r.input.addEventListener('input', () => { if (r.ok(r.input)) show(r, false); });
+    r.input.addEventListener('change', () => { if (r.ok(r.input)) show(r, false); });
+  });
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const fd = new FormData(form);
-    const name = String(fd.get('name') || '').trim();
-    const contact = String(fd.get('contact') || '').trim();
-    const consent = form.elements.consent.checked;
-    [form.elements.name, form.elements.contact].forEach((i) => i.classList.toggle('invalid', !i.value.trim()));
-    if (!name || !contact || !consent) {
-      note.textContent = 'Заполните имя, контакт и подтвердите согласие.';
+    const bad = rules.filter((r) => !r.ok(r.input));
+    rules.forEach((r) => show(r, bad.includes(r)));
+    if (bad.length) {
+      note.textContent = '';
+      bad[0].input.focus();
       return;
     }
+    const fd = new FormData(form);
+    const val = (k) => String(fd.get(k) || '').trim();
     const body = [
-      `Имя: ${name}`,
-      `Компания: ${String(fd.get('company') || '').trim()}`,
-      `Город: ${String(fd.get('city') || '').trim()}`,
-      `Контакт: ${contact}`,
+      `Имя: ${val('name')}`,
+      `Компания: ${val('company')}`,
+      `Город: ${val('city')}`,
+      `Контакт: ${val('contact')}`,
       '',
-      String(fd.get('message') || '').trim(),
+      val('message'),
     ].join('\n');
     const href = `mailto:Mtechno.tobacco@gmail.com?subject=${encodeURIComponent('Заявка на сотрудничество GDS')}&body=${encodeURIComponent(body)}`;
-    note.textContent = 'Открываем почтовый клиент с готовым письмом…';
+    note.textContent = 'Открываем почтовый клиент с готовым письмом.';
     window.location.href = href;
   });
 }

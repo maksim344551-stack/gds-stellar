@@ -1,146 +1,120 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" class="is-locked">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>GDS «Джедес» — Discover Star</title>
-  <meta name="description" content="Премиальный сигарный кальянный табак GDS «Джедес». Линейка Stellar: десять вкусов — десять звёзд. Информация для оптовых партнёров." />
-  <meta name="theme-color" content="#050506" />
+  <title>GDS «Джедес»: Discover Star</title>
+  <meta name="description" content="Премиальный сигарный кальянный табак GDS «Джедес». Линейка Stellar: десять вкусов, у каждого имя звезды. Информация для оптовых партнёров." />
+  <meta name="theme-color" content="#08080a" />
   <meta name="color-scheme" content="dark" />
   <meta name="robots" content="noindex, nofollow" />
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="ru_RU" />
-  <meta property="og:title" content="GDS «Джедес» — Discover Star" />
-  <meta property="og:description" content="Премиальный сигарный кальянный табак. Линейка Stellar: десять вкусов — десять звёзд." />
+  <meta property="og:title" content="GDS «Джедес»: Discover Star" />
+  <meta property="og:description" content="Премиальный сигарный кальянный табак. Линейка Stellar: десять вкусов, у каждого имя звезды." />
   <meta property="og:image" content="./og.jpg" />
   <meta name="twitter:card" content="summary_large_image" />
-  <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="./favicon.png" type="image/png" />
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <style>
     /* критичный CSS: заставка видна сразу, до загрузки основных стилей */
-    html { background: #050506; }
-    body { margin: 0; background: #050506; }
-    #loader { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; background: #050506; }
-    .no-js #loader { display: none; }
+    html { background: #08080a; }
+    body { margin: 0; background: #08080a; }
+    #loader { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; background: #08080a; }
   </style>
   <script type="module" src="/src/main.js"></script>
 </head>
-<body class="is-locked">
-  <noscript><style>#loader, #gate { display: none !important; } [data-reveal] { opacity: 1 !important; transform: none !important; filter: none !important; }</style></noscript>
+<body>
+  <noscript><style>#loader, #gate { display: none !important; } [data-in], [data-reveal], .line > span { opacity: 1 !important; transform: none !important; }</style></noscript>
 
-  <!-- ЗАСТАВКА -->
   <div id="loader" aria-live="polite">
     <div class="ld-center">
       <div class="logo-mark ld-logo" role="img" aria-label="GDS"></div>
       <div class="ld-bar"><i id="ld-fill"></i></div>
     </div>
-    <p class="ld-caption"><span>Загружаем звёздную карту</span><b id="ld-pct">00</b></p>
+    <p class="ld-caption"><span>Загрузка</span><b id="ld-pct">00</b></p>
   </div>
 
   <canvas id="gl" aria-hidden="true"></canvas>
-  <div class="film" aria-hidden="true"></div>
-  <div class="cursor" aria-hidden="true"></div>
-  <div class="callouts" id="callouts" aria-hidden="true"></div>
-  <div class="orbit-labels" id="orbit-labels" aria-hidden="true"></div>
+  <div class="overlay" id="overlay" aria-hidden="true"></div>
 
-  <!-- ВОЗРАСТНОЙ ЭКРАН -->
-  <div class="gate hide" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
-    <div class="gate-card bezel"><div class="core">
+  <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gate-title" hidden>
+    <div class="gate-card">
       <div class="logo-mark gate-logo" role="img" aria-label="GDS"></div>
-      <h2 id="gate-title">Вам исполнилось 18&nbsp;лет?</h2>
+      <h2 id="gate-title">Вам исполнилось 18 лет?</h2>
       <p>Сайт содержит информацию о табачной продукции и предназначен только для совершеннолетних.</p>
       <div class="gate-actions">
-        <button class="btn btn-gold" id="gate-yes" type="button"><span>Да, мне есть 18</span><i class="btn-ic"><svg><use href="#i-arrow-ur" /></svg></i></button>
-        <button class="btn btn-ghost" id="gate-no" type="button"><span>Нет</span></button>
+        <button class="btn btn-solid" id="gate-yes" type="button">Да, мне есть 18</button>
+        <button class="btn btn-line" id="gate-no" type="button">Нет</button>
       </div>
       <p class="gate-deny" id="gate-deny" role="alert" hidden>Доступ к сайту закрыт.</p>
-    </div></div>
+    </div>
   </div>
 
-  <!-- ПЛАВАЮЩАЯ НАВИГАЦИЯ -->
+  <a class="skip" href="#main">К содержимому</a>
+
   <header class="nav" id="nav">
-    <a class="nav-logo" href="#hero" data-go="hero" aria-label="GDS — наверх"><span class="logo-mark" role="img" aria-label="GDS"></span></a>
+    <a class="nav-logo" href="#hero" data-go="hero" aria-label="GDS, в начало"><span class="logo-mark" role="img" aria-label="GDS"></span></a>
     <nav class="nav-links" aria-label="Разделы">
       <a href="#product" data-go="product" data-sec="product">Упаковка</a>
       <a href="#flavors" data-go="flavors" data-sec="flavors">Вкусы</a>
       <a href="#blend" data-go="blend" data-sec="blend">Купаж</a>
       <a href="#partners" data-go="partners" data-sec="partners">Партнёрам</a>
+      <a href="#contact" data-go="contact" data-sec="contact">Контакты</a>
     </nav>
-    <a class="btn btn-gold btn-sm" href="#contact" data-go="contact"><span>Стать партнёром</span><i class="btn-ic"><svg><use href="#i-arrow-ur" /></svg></i></a>
+    <a class="btn btn-line btn-sm" href="#contact" data-go="contact">Стать партнёром</a>
   </header>
 
-  <nav class="rail" id="rail" aria-label="Прогресс по странице">
-    <button type="button" data-go="hero" data-sec="hero" aria-label="Начало"><i></i><span>Начало</span></button>
-    <button type="button" data-go="product" data-sec="product" aria-label="Упаковка"><i></i><span>Упаковка</span></button>
-    <button type="button" data-go="flavors" data-sec="flavors" aria-label="Вкусы"><i></i><span>Вкусы</span></button>
-    <button type="button" data-go="blend" data-sec="blend" aria-label="Купаж"><i></i><span>Купаж</span></button>
-    <button type="button" data-go="partners" data-sec="partners" aria-label="Партнёрам"><i></i><span>Партнёрам</span></button>
-    <button type="button" data-go="contact" data-sec="contact" aria-label="Контакты"><i></i><span>Контакты</span></button>
-  </nav>
-
-  <main id="main">
-    <!-- 00 · HERO -->
+  <main id="main" tabindex="-1">
     <section id="hero" class="hero" aria-labelledby="hero-title">
-      <div class="hero-body">
-        <p class="eyebrow" data-intro>Линейка Stellar · 10 звёзд</p>
+      <div class="hero-copy">
         <h1 class="display" id="hero-title">
-          <span class="line"><span data-line>Discover</span></span>
-          <span class="line"><span data-line class="gold-text">Star</span></span>
+          <span class="line"><span>Discover</span></span>
+          <span class="line"><span>Star</span></span>
         </h1>
-        <p class="lead" data-intro>Премиальный сигарный кальянный табак GDS «Джедес». Матовый чёрный, купольное золото и купаж из четырёх сортов листа — в десяти вкусах, названных звёздами.</p>
-        <div class="cta" data-intro>
-          <a class="btn btn-gold" href="#flavors" data-go="flavors"><span>Открыть линейку</span><i class="btn-ic"><svg><use href="#i-arrow-d" /></svg></i></a>
-          <a class="btn btn-ghost" href="#partners" data-go="partners"><span>Партнёрам</span><i class="btn-ic"><svg><use href="#i-arrow-ur" /></svg></i></a>
+        <p class="lead" data-in style="--i:2">Премиальный сигарный кальянный табак. Десять вкусов, у каждого имя звезды.</p>
+        <div class="cta" data-in style="--i:3">
+          <a class="btn btn-solid" href="#flavors" data-go="flavors">Открыть линейку</a>
+          <a class="btn btn-line" href="#contact" data-go="contact">Стать партнёром</a>
         </div>
       </div>
-      <dl class="hero-stats" data-intro>
-        <div><dt>вкусов</dt><dd>10</dd></div>
-        <div><dt>сорта табака</dt><dd>4</dd></div>
-        <div><dt>в банке</dt><dd>25&nbsp;г</dd></div>
-      </dl>
-      <div class="marquee" aria-hidden="true"><div class="track" id="marquee-track"></div></div>
     </section>
 
-    <!-- 01 · УПАКОВКА -->
     <section id="product" class="tall" data-screens="3.2" aria-label="Упаковка">
       <div class="pin">
         <div class="chapters">
           <article class="chapter on" data-ch="0">
-            <p class="eyebrow">01 — Упаковка</p>
-            <h2 class="h2">Банка, в которой звёздное небо</h2>
-            <p class="lead">Оформление в матовом чёрном цвете в сочетании с купольным золотом. Ассоциация со звёздным небом и премиальность новой линии — в каждой детали.</p>
+            <h2 class="h2">Упаковка</h2>
+            <p class="lead">Матовый чёрный цвет и купольное золото. Оформление отсылает к звёздному небу и подчёркивает премиальность линейки.</p>
           </article>
           <article class="chapter" data-ch="1">
-            <p class="eyebrow">01 — Упаковка</p>
-            <h2 class="h2">Продумана до миллиметра</h2>
-            <ul class="specs">
-              <li><b>25 г</b><span>табака в банке</span></li>
-              <li><b>Полусфера</b><span>Термос с отсекателем: табак легко извлекать — в отличие от банок с плоским дном.</span></li>
-              <li><b>Обечайка</b><span>Придаёт банке устойчивость и объём, позволяет выигрышнее позиционировать её на полке.</span></li>
-            </ul>
+            <h2 class="h2">Конструкция банки</h2>
+            <dl class="specs">
+              <div><dt>Масса табака</dt><dd>25 г</dd></div>
+              <div><dt>Крышка</dt><dd>Термос-полусфера с отсекателем. Табак легко извлекать, в отличие от банок с плоским дном.</dd></div>
+              <div><dt>Обечайка</dt><dd>Придаёт банке устойчивость и объём, выигрышнее смотрится на полке.</dd></div>
+            </dl>
           </article>
           <article class="chapter" data-ch="2">
-            <p class="eyebrow">01 — Продукт</p>
-            <h2 class="h2">Generation &amp; Delivery Smoke</h2>
-            <p class="lead">GDS, по-русски «Джедес» — табак для вкусового, дымного и длительного курения в трубочной обработке. Слоган линейки — «Discover Star»: «Открой звезду».</p>
-            <p class="small">Производитель — компания «М-Техно», Санкт-Петербург.</p>
+            <h2 class="h2">О продукте</h2>
+            <p class="lead">GDS (Generation &amp; Delivery Smoke), по-русски «Джедес». Премиальный табак для кальяна в трубочной обработке, для вкусового, дымного и длительного курения.</p>
+            <p class="small">Слоган линейки: Discover Star, то есть «Открой звезду». Производитель: компания «М-Техно», Санкт-Петербург.</p>
           </article>
         </div>
-        <div class="dots" aria-hidden="true"><i class="on"></i><i></i><i></i></div>
       </div>
     </section>
 
-    <!-- 02 · ВКУСЫ -->
     <section id="flavors" class="tall" aria-label="Линейка Stellar">
       <div class="pin pin-flavors">
         <div class="f-panel" aria-live="polite">
-          <p class="eyebrow">02 — Линейка Stellar</p>
-          <div class="f-count"><span id="f-idx">01</span><em>/ 10</em>
-            <span class="f-arrows">
-              <button type="button" class="ic-btn" id="f-prev" aria-label="Предыдущий вкус"><svg><use href="#i-arrow-l" /></svg></button>
-              <button type="button" class="ic-btn" id="f-next" aria-label="Следующий вкус"><svg><use href="#i-arrow-r" /></svg></button>
-            </span>
+          <div class="f-top">
+            <p class="f-kicker">Линейка Stellar</p>
+            <div class="f-arrows">
+              <button type="button" class="ic-btn" id="f-prev" aria-label="Предыдущий вкус" data-icon="arrow-left"></button>
+              <button type="button" class="ic-btn" id="f-next" aria-label="Следующий вкус" data-icon="arrow-right"></button>
+            </div>
           </div>
+          <p class="f-count"><span id="f-idx">01</span> / 10</p>
           <h2 class="f-name" id="f-name">Altair</h2>
           <p class="f-ru" id="f-ru">Мята</p>
           <p class="f-desc" id="f-desc"></p>
@@ -150,108 +124,98 @@
       </div>
     </section>
 
-    <!-- 03 · КУПАЖ -->
     <section id="blend" class="block" aria-labelledby="blend-title">
-      <div class="wrap split">
-        <div class="split-head">
-          <p class="eyebrow" data-reveal>03 — Купаж</p>
-          <h2 class="h2" id="blend-title" data-split>4 сорта. Один купаж.</h2>
-          <p class="lead" data-reveal>Табак разработан на основе точно выверенного сочетания сразу четырёх сортов — сложная технология и работа со сложными купажами.</p>
-          <ul class="checks" data-reveal>
-            <li><svg><use href="#i-check" /></svg>Новый взгляд на создание табачного купажа</li>
-            <li><svg><use href="#i-check" /></svg>Натуральные ароматические эссенции, которые не забивают уникальный вкус листа</li>
-            <li><svg><use href="#i-check" /></svg>Долгий срок хранения и удобство упаковки</li>
-            <li><svg><use href="#i-check" /></svg>Высокая крепость (в никотиновом эквиваленте)</li>
-            <li><svg><use href="#i-check" /></svg>Широкая линейка вкусов на старте продаж</li>
+      <div class="wrap">
+        <div class="head" data-reveal>
+          <h2 class="h2" id="blend-title">Купаж из четырёх сортов</h2>
+          <p class="lead">Технология производства сложная и уникальная. Табак разработан на основе точно выверенного сочетания четырёх сортов.</p>
+        </div>
+        <div class="sorts">
+          <article class="sort" style="--tone:#8e9d4e" data-reveal><h3>Оберточный сигарный табак</h3><p>Формирует крепость купажа и добавляет лёгкой остроты.</p></article>
+          <article class="sort" style="--tone:#b9854f" data-reveal><h3>Берли</h3><p>В обработке Кавендиш.</p></article>
+          <article class="sort" style="--tone:#b3523a" data-reveal><h3>Вирджиния Ред</h3><p>В обработке Кавендиш.</p></article>
+          <article class="sort" style="--tone:#dcb85c" data-reveal><h3>Вирджиния Голд</h3><p>Естественной ферментации.</p></article>
+        </div>
+        <p class="note" data-reveal>Обработка Кавендиш даёт сладковато-горькие ноты шоколада, Вирджиния добавляет лёгкие фруктовые ноты.</p>
+        <div class="adv" data-reveal>
+          <h3 class="h3">Преимущества табака</h3>
+          <ul class="plain-list">
+            <li>Новый взгляд на создание табачного купажа</li>
+            <li>Натуральные ароматические эссенции, которые не забивают уникальный вкус листа</li>
+            <li>Долгий срок хранения и удобство упаковки</li>
+            <li>Высокая крепость (в никотиновом эквиваленте)</li>
+            <li>Широкая линейка вкусов на старте продаж</li>
           </ul>
         </div>
-        <div class="bento sorts">
-          <article class="bezel tilt s-1" data-reveal><div class="core"><svg class="leaf" style="--lc:#8e9d4e"><use href="#i-leaf" /></svg><span class="num">01</span><h3>Оберточный сигарный</h3><p>Формирует крепость купажа и добавляет лёгкой остроты.</p></div></article>
-          <article class="bezel tilt s-2" data-reveal><div class="core"><svg class="leaf" style="--lc:#b9854f"><use href="#i-leaf" /></svg><span class="num">02</span><h3>Берли</h3><p>В обработке Кавендиш.</p></div></article>
-          <article class="bezel tilt s-3" data-reveal><div class="core"><svg class="leaf" style="--lc:#b3523a"><use href="#i-leaf" /></svg><span class="num">03</span><h3>Вирджиния Ред</h3><p>В обработке Кавендиш — сладковато-горькие ноты шоколада.</p></div></article>
-          <article class="bezel tilt s-4" data-reveal><div class="core"><svg class="leaf" style="--lc:#e6bd55"><use href="#i-leaf" /></svg><span class="num">04</span><h3>Вирджиния Голд</h3><p>Естественной ферментации, с лёгкими фруктовыми нотами.</p></div></article>
+      </div>
+    </section>
+
+    <section id="partners" class="block rule" aria-labelledby="partners-title">
+      <div class="wrap split">
+        <div class="split-head" data-reveal>
+          <h2 class="h2" id="partners-title">Условия для партнёров</h2>
+          <p class="lead">Мы открыты для сотрудничества и готовы предложить выгодные условия.</p>
+          <a class="btn btn-solid" href="#contact" data-go="contact">Стать партнёром</a>
+        </div>
+        <div class="groups">
+          <section class="group" data-reveal>
+            <h3 class="h3">Производство и поставки</h3>
+            <dl>
+              <div><dt>Крупный производитель</dt><dd>Партнёрство с крупным заводом-производителем.</dd></div>
+              <div><dt>Бесперебойные поставки</dt><dd>Стабильное производство в Санкт-Петербурге.</dd></div>
+              <div><dt>Высокая маржинальность</dt><dd>Цены и условия по запросу.</dd></div>
+            </dl>
+          </section>
+          <section class="group" data-reveal>
+            <h3 class="h3">Поддержка продаж</h3>
+            <dl>
+              <div><dt>Обучение продавцов</dt><dd>История создания, уникальность процесса забивки, обработка листа.</dd></div>
+              <div><dt>Материалы для SMM</dt><dd>Готовые материалы для продвижения.</dd></div>
+              <div><dt>Мотивация продавцов</dt><dd>Программа мотивации для вашей команды.</dd></div>
+            </dl>
+          </section>
         </div>
       </div>
     </section>
 
-    <!-- 04 · ПАРТНЁРАМ -->
-    <section id="partners" class="block" aria-labelledby="partners-title">
+    <section id="contact" class="block rule contact" aria-labelledby="contact-title">
       <div class="wrap">
-        <div class="sec-head">
-          <p class="eyebrow" data-reveal>04 — Партнёрам</p>
-          <h2 class="h2 wide" id="partners-title" data-split>Продавайте звезду вместе с нами</h2>
+        <div class="head" data-reveal>
+          <h2 class="h2" id="contact-title">Начните продавать GDS уже сегодня</h2>
+          <p class="lead">Давайте вместе развивать и расширять рынок уникального кальянного табака.</p>
         </div>
-        <div class="bento perks">
-          <article class="bezel tilt p-1" data-reveal><div class="core"><svg class="ic"><use href="#i-factory" /></svg><h3>Крупный производитель</h3><p>Партнёрство с крупным заводом-производителем в Санкт-Петербурге.</p></div></article>
-          <article class="bezel tilt p-2" data-reveal><div class="core"><svg class="ic"><use href="#i-percent" /></svg><h3>Высокая маржинальность</h3><p>Условия и расчёт — по запросу.</p></div></article>
-          <article class="bezel tilt p-3" data-reveal><div class="core"><svg class="ic"><use href="#i-book" /></svg><h3>Обучение продавцов</h3><p>История создания, уникальность процесса забивки, обработка листа.</p></div></article>
-          <article class="bezel tilt p-4" data-reveal><div class="core"><svg class="ic"><use href="#i-truck" /></svg><h3>Бесперебойные поставки</h3><p>Стабильное собственное производство.</p></div></article>
-          <article class="bezel tilt p-5" data-reveal><div class="core"><svg class="ic"><use href="#i-camera" /></svg><h3>Материалы для SMM</h3><p>Готовые материалы для продвижения.</p></div></article>
-          <article class="bezel tilt p-6" data-reveal><div class="core"><svg class="ic"><use href="#i-star" /></svg><h3>Мотивация продавцов</h3><p>Программа мотивации для вашей команды.</p></div></article>
-        </div>
-        <div class="cta-band bezel" data-reveal><div class="core">
-          <p class="band-text">Мы открыты для сотрудничества уже сегодня и готовы предложить выгодные условия партнёрам.</p>
-          <a class="btn btn-gold" href="#contact" data-go="contact"><span>Обсудить условия</span><i class="btn-ic"><svg><use href="#i-arrow-ur" /></svg></i></a>
-        </div></div>
-      </div>
-    </section>
-
-    <!-- 05 · КОНТАКТЫ -->
-    <section id="contact" class="block contact" aria-labelledby="contact-title">
-      <div class="wrap contact-grid">
-        <div>
-          <p class="eyebrow" data-reveal>05 — Контакты</p>
-          <h2 class="h2" id="contact-title" data-split>Начните продавать GDS уже сегодня</h2>
-          <p class="lead" data-reveal>Давайте вместе развивать и расширять рынок уникального кальянного табака.</p>
-          <dl class="contacts" data-reveal>
-            <div><dt><svg><use href="#i-phone" /></svg>Телефон</dt><dd><a href="tel:88003004999">8&nbsp;800&nbsp;300&nbsp;4999</a></dd></div>
-            <div><dt><svg><use href="#i-phone" /></svg>Отдел закупок</dt><dd><a href="tel:+79990050301">+7&nbsp;999&nbsp;005&nbsp;0301</a></dd></div>
-            <div><dt><svg><use href="#i-mail" /></svg>Почта</dt><dd><a href="mailto:Mtechno.tobacco@gmail.com">Mtechno.tobacco@gmail.com</a></dd></div>
-            <div><dt><svg><use href="#i-pin" /></svg>Производство</dt><dd>Россия, Санкт-Петербург, Колпино, Финляндская&nbsp;ул.&nbsp;35</dd></div>
-          </dl>
-        </div>
-        <form class="form bezel" id="lead-form" data-reveal novalidate><div class="core">
-          <h3>Заявка на сотрудничество</h3>
-          <label>Имя<input name="name" autocomplete="name" required /></label>
-          <label>Компания<input name="company" autocomplete="organization" /></label>
-          <label>Город<input name="city" autocomplete="address-level2" /></label>
-          <label>Телефон или e-mail<input name="contact" autocomplete="off" required /></label>
-          <label>Сообщение<textarea name="message" rows="3"></textarea></label>
-          <label class="check"><input type="checkbox" name="consent" required /><span>Согласен на обработку персональных данных. Мне есть 18 лет, я представляю юридическое лицо или ИП, торгующее табачной продукцией.</span></label>
-          <button class="btn btn-gold" type="submit"><span>Отправить заявку</span><i class="btn-ic"><svg><use href="#i-arrow-ur" /></svg></i></button>
-          <p class="form-note" id="form-note" role="status"></p>
-        </div></form>
+        <dl class="contacts" data-reveal>
+          <div><dt>Телефон</dt><dd><a href="tel:88003004999">8&nbsp;800&nbsp;300&nbsp;4999</a></dd></div>
+          <div><dt>Отдел закупок</dt><dd><a href="tel:+79990050301">+7&nbsp;999&nbsp;005&nbsp;0301</a></dd></div>
+          <div><dt>Почта</dt><dd><a href="mailto:Mtechno.tobacco@gmail.com">Mtechno.tobacco@gmail.com</a></dd></div>
+          <div><dt>Производство</dt><dd>Россия, Санкт-Петербург, Колпино, Финляндская&nbsp;ул.&nbsp;35</dd></div>
+        </dl>
+        <form class="form" id="lead-form" data-reveal novalidate>
+          <h3 class="h3 full">Заявка на сотрудничество</h3>
+          <div class="field"><label for="f-name-in">Имя</label><input id="f-name-in" name="name" autocomplete="name" required aria-describedby="e-name" /><p class="err" id="e-name" role="alert"></p></div>
+          <div class="field"><label for="f-company">Компания</label><input id="f-company" name="company" autocomplete="organization" /></div>
+          <div class="field"><label for="f-city">Город</label><input id="f-city" name="city" autocomplete="address-level2" /></div>
+          <div class="field"><label for="f-contact">Телефон или e-mail</label><input id="f-contact" name="contact" autocomplete="off" required aria-describedby="e-contact" /><p class="err" id="e-contact" role="alert"></p></div>
+          <div class="field full"><label for="f-msg">Сообщение</label><textarea id="f-msg" name="message" rows="3"></textarea></div>
+          <div class="field full">
+            <label class="check"><input type="checkbox" name="consent" required aria-describedby="e-consent" /><span>Согласен на обработку персональных данных. Мне есть 18 лет, я представляю юридическое лицо или ИП, торгующее табачной продукцией.</span></label>
+            <p class="err" id="e-consent" role="alert"></p>
+          </div>
+          <div class="full form-end">
+            <button class="btn btn-solid" type="submit">Отправить заявку</button>
+            <p class="form-note" id="form-note" role="status"></p>
+          </div>
+        </form>
       </div>
     </section>
   </main>
 
   <footer class="footer">
-    <div class="wordmark" role="img" aria-label="GDS Generation &amp; Delivery Smoke"></div>
     <div class="wrap foot-grid">
-      <p>© М-Техно · GDS «Джедес». Информация предназначена исключительно для оптовых партнёров — совершеннолетних лиц, осуществляющих торговлю табачной продукцией, и не является рекламой или публичной офертой.</p>
+      <div class="logo-mark foot-logo" role="img" aria-label="GDS"></div>
+      <p>© М-Техно. GDS «Джедес». Информация предназначена исключительно для оптовых партнёров, совершеннолетних лиц, осуществляющих торговлю табачной продукцией, и не является рекламой или публичной офертой.</p>
       <p class="warn">Курение вредит вашему здоровью.</p>
     </div>
   </footer>
-
-  <!-- ИКОНКИ: тонкая линия 1.25 -->
-  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <defs>
-      <symbol id="i-arrow-ur" viewBox="0 0 24 24"><path d="M7 17 17 7M8.5 7H17v8.5" /></symbol>
-      <symbol id="i-arrow-d" viewBox="0 0 24 24"><path d="M12 5v14M6.5 13.5 12 19l5.5-5.5" /></symbol>
-      <symbol id="i-arrow-l" viewBox="0 0 24 24"><path d="M19 12H5M10.5 6.5 5 12l5.5 5.5" /></symbol>
-      <symbol id="i-arrow-r" viewBox="0 0 24 24"><path d="M5 12h14M13.5 6.5 19 12l-5.5 5.5" /></symbol>
-      <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" /></symbol>
-      <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5.5 19.5C4.5 11 9 5 19.5 4.5 19.5 14.5 14 20 5.5 19.5ZM5.5 19.5 14.5 10" /></symbol>
-      <symbol id="i-factory" viewBox="0 0 24 24"><path d="M3 20.5V10.8l6 3.2v-3.2l6 3.2V4.5h6v16H3ZM7 17h2M12 17h2M17 17h2M17 8h2" /></symbol>
-      <symbol id="i-percent" viewBox="0 0 24 24"><path d="M19 5 5 19M7.5 9.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4ZM16.5 19.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4Z" /></symbol>
-      <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19V5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5M4 19a2.5 2.5 0 0 0 2.5 2H19v-3" /></symbol>
-      <symbol id="i-truck" viewBox="0 0 24 24"><path d="M2.5 6.5h11v10h-11zM13.5 10h4l3 3v3.5h-7M7 19.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2ZM17 19.5a1.6 1.6 0 1 0 0-3.2 1.6 1.6 0 0 0 0 3.2Z" /></symbol>
-      <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 7.5h3L8.7 5h6.6L17 7.5h3v11.5H4zM12 16.5a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z" /></symbol>
-      <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.5 6 .8-4.4 4.2 1.1 6L12 17.1 6.7 20l1.1-6L3.4 9.8l6-.8z" /></symbol>
-      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5.5 4h3.3l1.8 4.6-2.3 1.5a11 11 0 0 0 5.6 5.6l1.5-2.3 4.6 1.8v3.3a1.8 1.8 0 0 1-1.9 1.8A16.5 16.5 0 0 1 3.7 5.9 1.8 1.8 0 0 1 5.5 4Z" /></symbol>
-      <symbol id="i-mail" viewBox="0 0 24 24"><path d="M3.5 6h17v12h-17zM3.8 6.8 12 13l8.2-6.2" /></symbol>
-      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6.8-5.9 6.8-11.2a6.8 6.8 0 0 0-13.6 0C5.2 15.1 12 21 12 21ZM12 12.4a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2Z" /></symbol>
-    </defs>
-  </svg>
 </body>
 </html>
