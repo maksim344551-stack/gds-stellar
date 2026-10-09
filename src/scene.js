@@ -1,13 +1,15 @@
 import * as THREE from 'three';
 import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
-import moonUrl from './assets/moon.jpg';
+import moonUrl from './assets/moon.webp';
+import { phone } from './env.js';
 import { makeMoon, makePlanets, makeNebula, makeStar, makeStars } from './cosmos.js';
 
-// p00..p09 планеты вкусов, p10 планета упаковки (порядок по имени файла)
-const PLANET_URLS = Object.entries(import.meta.glob('./assets/planets/p*.jpg', { eager: true, query: '?url', import: 'default' }))
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([, url]) => url);
+// p00..p09 планеты вкусов, p10 планета упаковки (порядок по имени файла). Две версии: 1100 px и облегчённая 768 px для телефонов.
+const byName = (g) => Object.entries(g).sort(([a], [b]) => a.localeCompare(b)).map(([, url]) => url);
+const PLANETS_FULL = byName(import.meta.glob('./assets/planets/p*.webp', { eager: true, query: '?url', import: 'default' }));
+const PLANETS_SMALL = byName(import.meta.glob('./assets/planets/s/p*.webp', { eager: true, query: '?url', import: 'default' }));
+export const PLANET_URLS = phone ? PLANETS_SMALL : PLANETS_FULL;
 
 /** Студийное освещение: тёмная комната с софтбоксами. Хром получает чёткие, «предметные» блики. */
 function studioEnvironment(renderer) {
@@ -60,7 +62,7 @@ export async function createScene(canvas, { lowPower, light }) {
   const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
   scene.add(camera);
 
-  const nebula = makeNebula();
+  const nebula = makeNebula(renderer);
   scene.add(nebula.mesh);
   const stars = makeStars(lowPower ? 3200 : 6500, pr);
   stars.points.renderOrder = 5;

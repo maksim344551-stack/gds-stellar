@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SKINS } from './data.js';
 import LOGO_URL from './assets/logo-lg.png';
+import { phone } from './env.js';
 
 // Один шрифт сайта. DISPLAY печатается в расширенном начертании (как логотип), SANS в обычном.
 const SANS = '"Roboto Flex Variable", system-ui, sans-serif';
@@ -14,7 +15,9 @@ const MR = {
   foil: 'rgb(255,118,100)',
 };
 
-const CACHE_LIMIT = 4;
+// На телефоне текстуры этикеток 0,75 от полного размера и в кэше три комплекта (текущий и два соседних): около 22 МБ видеопамяти на вкус вместо 39.
+const Q = phone ? 0.75 : 1;
+const CACHE_LIMIT = phone ? 3 : 4;
 let logo = null;
 let maxAniso = 8;
 const tintCache = new Map();
@@ -321,19 +324,21 @@ function toTexture(cv, { srgb, wrap }) {
 // плотности пикселей 2); карта шероховатости вдвое меньше. Один комплект занимает около 25 МБ видеопамяти.
 function build(id) {
   const skin = SKINS[id];
-  const label = canvas(LABEL_W, LABEL_H);
-  drawLabel(label.getContext('2d'), skin, 'color');
-  const mr = canvas(LABEL_W / 2, LABEL_H / 2);
+  const label = canvas(Math.round(LABEL_W * Q), Math.round(LABEL_H * Q));
+  const lc = label.getContext('2d');
+  lc.scale(Q, Q);
+  drawLabel(lc, skin, 'color');
+  const mr = canvas(Math.round((LABEL_W / 2) * Q), Math.round((LABEL_H / 2) * Q));
   const mc = mr.getContext('2d');
-  mc.scale(0.5, 0.5);
+  mc.scale(0.5 * Q, 0.5 * Q);
   drawLabel(mc, skin, 'mr');
-  const lid = canvas(1536, 1536);
+  const lid = canvas(Math.round(1536 * Q), Math.round(1536 * Q));
   const ld = lid.getContext('2d');
-  ld.scale(1.5, 1.5);
+  ld.scale(1.5 * Q, 1.5 * Q);
   drawLid(ld, skin, 'color');
-  const lidMr = canvas(768, 768);
+  const lidMr = canvas(Math.round(768 * Q), Math.round(768 * Q));
   const lm = lidMr.getContext('2d');
-  lm.scale(0.75, 0.75);
+  lm.scale(0.75 * Q, 0.75 * Q);
   drawLid(lm, skin, 'mr');
   return {
     label: toTexture(label, { srgb: true, wrap: true }),

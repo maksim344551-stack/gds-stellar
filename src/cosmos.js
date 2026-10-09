@@ -29,7 +29,10 @@ float fbm3(vec3 p){ float a=.5,s=0.; for(int i=0;i<3;i++){ s+=a*noise(p); p*=2.0
  * а на экран выводится обычным текстурированным прямоугольником. Это в десятки раз дешевле, чем шум на каждый
  * пиксель в полном разрешении, и именно такие тяжёлые полноэкранные шейдеры вешают слабые видеокарты.
  */
-export function makeNebula() {
+export function makeNebula(renderer) {
+  // HalfFloat-буфер нужен для плавных тёмных градиентов; если видеокарта не умеет рисовать в него (часть телефонов), берём обычный 8-битный
+  const ext = renderer.extensions;
+  const bufType = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float') ? THREE.HalfFloatType : THREE.UnsignedByteType;
   const source = new THREE.ShaderMaterial({
     depthWrite: false,
     depthTest: false,
@@ -67,7 +70,7 @@ export function makeNebula() {
   const srcCam = new THREE.Camera();
   // HalfFloat: в тёмных градиентах 8 бит дали бы заметные ступени
   const rt = new THREE.WebGLRenderTarget(640, 360, {
-    type: THREE.HalfFloatType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+    type: bufType, depthBuffer: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
   });
 
   const mesh = new THREE.Mesh(
@@ -160,7 +163,7 @@ export function makeStars(count, pr) {
 
 /* ── луна ─────────────────────────────────────────────────────────── */
 
-// Фото луны (src/assets/moon.jpg, диск вырезан по кругу) проецируется на сферу, обращённую к камере.
+// Фото луны (src/assets/moon.webp, диск вырезан по кругу) проецируется на сферу, обращённую к камере.
 // Видна только ближняя сторона, поэтому «вращение» это либрация: покачивание в пределах нескольких градусов
 // (как у настоящей луны, всегда повёрнутой одной стороной), плюс небольшой доворот при прокрутке (uYaw).
 // Освещение запечено в снимке; шейдер добавляет золотую кайму и гасит луну по uAlpha.

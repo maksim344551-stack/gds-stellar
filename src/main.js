@@ -53,6 +53,7 @@ const el = {
   navLinks: $$('.nav-links a[data-sec]'),
 };
 // блок вкусов: один закреплённый экран с небольшим запасом прокрутки; вкус выбирается нажатием, а не длиной страницы
+el.flavors.style.height = 'calc(1.3 * 100vh)'; // запасное значение: svh есть не во всех браузерах, неподдерживаемое значение игнорируется
 el.flavors.style.height = 'calc(1.3 * 100svh)';
 
 // ── заставка ───────────────────────────────────────────────────────
@@ -158,6 +159,7 @@ let sc = null;
 // На телефоне длинное описание вкуса обрезается; кнопка «Подробнее» показывается только когда текст не поместился.
 function collapseDesc() {
   el.fPanel.classList.remove('open');
+  $('.pin-flavors').classList.remove('reading');
   el.fMore.setAttribute('aria-expanded', 'false');
   el.fMore.textContent = 'Подробнее';
 }
@@ -169,6 +171,7 @@ function updateMore() {
 }
 el.fMore.addEventListener('click', () => {
   const open = el.fPanel.classList.toggle('open');
+  $('.pin-flavors').classList.toggle('reading', open);
   el.fMore.setAttribute('aria-expanded', String(open));
   el.fMore.textContent = open ? 'Свернуть' : 'Подробнее';
 });

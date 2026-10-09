@@ -114,15 +114,15 @@ main, .footer { position: relative; z-index: 2; }
 .reduced [data-in], .reduced [data-reveal], .reduced .display .line > span { opacity: 1; transform: none; transition: none; }
 
 /* hero */
-.hero { min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav-h) + 24px) var(--edge) 56px; }
+.hero { min-height: 100vh; min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav-h) + 24px) var(--edge) 56px; }
 .hero-copy { max-width: min(42rem, 56vw); }
 .cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 40px; }
 
 /* закреплённые сцены */
 .tall { position: relative; }
-.pin { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; padding: 0 var(--edge); }
+.pin { position: sticky; top: 0; height: 100vh; height: 100svh; display: flex; align-items: center; padding: 0 var(--edge); }
 /* блок «Упаковка»: один экран, текст слева, банка и планета справа (рисует сцена) */
-.stage { position: relative; min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav-h) + 1.5rem) var(--edge) 4rem; }
+.stage { position: relative; min-height: 100vh; min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav-h) + 1.5rem) var(--edge) 4rem; }
 .panel { position: relative; z-index: 3; width: min(33rem, 100%, 54vw); }
 .specs { display: grid; }
 .specs > div { display: grid; grid-template-columns: minmax(7rem, 30%) 1fr; gap: 1rem; padding: 1.05rem 0; border-top: 1px solid var(--line); }
@@ -265,13 +265,13 @@ main, .footer { position: relative; z-index: 2; }
   .hero-copy { max-width: 100%; }
   .display { font-size: clamp(2.5rem, 12.5vw, 4.6rem); }
   .cta .btn { height: 3rem; }
-  .pin { align-items: flex-end; padding-bottom: 6svh; }
-  .stage { align-items: flex-end; padding-top: calc(var(--nav-h) + 1rem); padding-bottom: 6svh; }
+  .pin { align-items: flex-end; padding-bottom: 6vh; padding-bottom: 6svh; }
+  .stage { align-items: flex-end; padding-top: calc(var(--nav-h) + 1rem); padding-bottom: 6vh; padding-bottom: 6svh; }
   /* Затемнение под текстом: один слой, закреплённый на экране, а не по секциям. У секционных затемнений был резкий край там, где
      секция заканчивается, и он проезжал по экрану при прокрутке. Закреплённый слой не двигается, его прозрачность ведёт main.js (--scrim):
      появляется вместе с заставкой и уходит, когда сцену закрывают сплошные блоки. */
   .scrim {
-    display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 82svh; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 82vh; height: 82svh; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
     background: linear-gradient(to top, rgba(8, 8, 10, 0.9) 0%, rgba(8, 8, 10, 0.86) 24%, rgba(8, 8, 10, 0.77) 40%, rgba(8, 8, 10, 0.63) 54%,
       rgba(8, 8, 10, 0.46) 66%, rgba(8, 8, 10, 0.29) 77%, rgba(8, 8, 10, 0.15) 86%, rgba(8, 8, 10, 0.06) 93%, rgba(8, 8, 10, 0) 100%);
   }
@@ -286,27 +286,12 @@ main, .footer { position: relative; z-index: 2; }
   .panel .h2 { margin-bottom: 14px; }
   .specs > div { grid-template-columns: 1fr; gap: 2px; padding: 10px 0; }
   .specs dd { font-size: 0.95rem; line-height: 1.45; }
-  .pin-flavors { flex-direction: column; justify-content: flex-end; gap: 12px; padding-bottom: 6svh; }
+  .pin-flavors { flex-direction: column; justify-content: flex-end; gap: 12px; padding-bottom: 6vh; padding-bottom: 6svh; }
   .f-panel { width: 100%; margin-top: 0; }
   .f-top { margin-bottom: 12px; }
   .f-name { font-size: clamp(2.4rem, 12.5vw, 4rem); }
   .f-desc { min-height: 0; font-size: 0.97rem; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .f-astro { margin-top: 14px; padding-top: 14px; gap: 10px 24px; }
-  .sorts, .contacts { grid-template-columns: 1fr; }
-  .group dl > div { grid-template-columns: 1fr; gap: 2px; }
-}
-/* телефон в альбомной ориентации и другие низкие окна: всё компактнее, чтобы блоки помещались в экран */
-/* телефон (узкий или низкий экран): описание вкуса сворачивается с кнопкой «Подробнее», список вкусов листается вбок */
-@media (max-width: 760px), (max-height: 560px) {
-  .f-kicker, .f-count { color: var(--ink-2); }
-  .f-more { all: unset; display: none; margin-top: 0.2rem; padding: 0.85rem 0; color: var(--fa); font-size: 0.95rem; font-weight: 600; line-height: 1.2; text-decoration: underline; text-underline-offset: 0.3em; cursor: pointer; }
-  .f-more.show { display: inline-block; }
-  .f-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
-  .f-panel.open .f-desc { display: block; -webkit-line-clamp: unset; overflow: visible; }
-  .f-panel.open .f-astro { display: none; }
-  /* режим чтения: пока описание развёрнуто, сцена за ним приглушается, чтобы текст читался на любой планете */
-  .pin-flavors::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(8, 8, 10, 0.88); opacity: 0; transition: opacity 0.35s var(--ease); }
-  .pin-flavors:has(.f-panel.open)::after { opacity: 1; }
 }
 @media (max-height: 560px) {
   :root { --nav-h: 3.5rem; }
@@ -334,7 +319,7 @@ main, .footer { position: relative; z-index: 2; }
   .f-ru { margin: 0.6rem 0; }
   .f-desc { -webkit-line-clamp: 3; font-size: 0.92rem; }
   .f-top { margin-bottom: 0.5rem; }
-  .pin-flavors { padding-bottom: 8svh; }
+  .pin-flavors.reading::after { opacity: 1; }
   .panel .h2 { font-size: 1.7rem; }
 }
 /* сенсорные экраны: все кнопки и ссылки не меньше 44 px */
