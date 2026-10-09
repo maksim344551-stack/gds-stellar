@@ -24,6 +24,13 @@ const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* приватный режим */ } },
 };
+// Ответ на вопрос о возрасте живёт только до закрытия вкладки: при каждом новом заходе вопрос задаётся снова.
+// Раньше ответ хранился в localStorage без срока; старое значение удаляем, чтобы оно не путало.
+const ageAnswer = {
+  get() { try { return sessionStorage.getItem('gds-18'); } catch { return null; } },
+  set() { try { sessionStorage.setItem('gds-18', '1'); } catch { /* приватный режим */ } },
+};
+try { localStorage.removeItem('gds-18'); } catch { /* приватный режим */ }
 
 // ── окружение ──────────────────────────────────────────────────────
 const params = new URLSearchParams(location.search);
@@ -348,7 +355,7 @@ function targets(y) {
     x: narrow ? 0 : lerp(1.8, 1.9, hero),
     y: (narrow ? lerp(1.4, 1.25, hero) : 0) + exit * 8 - (1 - iv) * 1.2,
     // на невысоких телефонах банка меньше, чтобы подпись блока не заезжала на неё
-    s: (narrow ? 0.74 * lerp(0.82, 1, clamp((innerHeight - 568) / 276)) : 1.12) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
+    s: (narrow ? 0.82 * lerp(0.82, 1, clamp((innerHeight - 568) / 276)) : 1.26) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
     // лицевая сторона (вкус, логотип) всегда к покупателю, банка лишь слегка покачивается
     ry: face + sway * swayAmp + exit * Math.PI * 1.2,
     rx: lerp(0.36, 0.26, flavT) - pointer.y * 0.06,
@@ -487,7 +494,7 @@ function showGate() {
   }));
 }
 $('#gate-yes').addEventListener('click', () => {
-  store.set('gds-18', '1');
+  ageAnswer.set();
   setInert(false);
   el.gate.classList.add('hide');
   setTimeout(() => { el.gate.hidden = true; }, 600);
@@ -579,7 +586,7 @@ async function boot() {
   initReveals(reduced);
   initForm();
 
-  if (store.get('gds-18') === '1') setTimeout(startIntro, 250);
+  if (ageAnswer.get() === '1') setTimeout(startIntro, 250);
   else setTimeout(showGate, 350);
 }
 
