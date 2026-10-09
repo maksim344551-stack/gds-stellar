@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { BRAND, FLAVORS, SKINS } from './data.js';
 import { nb, typografDOM } from './typo.js';
 import { hydrateIcons, initForm, initReveals } from './ui.js';
-import { createScene } from './scene.js';
+import { createScene, PLANET_URLS } from './scene.js';
+import posterD from './assets/poster-d.webp';
+import posterM from './assets/poster-m.webp';
 import { loadSkinAssets, warmSkins } from './skins.js';
 import { loadCatalog, applyCatalog } from './catalog.js';
 
@@ -38,8 +40,10 @@ const root = document.documentElement;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || params.has('reduced');
 const coarse = matchMedia('(pointer: coarse)').matches;
 const lowPower = coarse || (navigator.hardwareConcurrency || 8) <= 4 || params.has('low');
-const forcedLight = params.get('q') === '0'; // ?q=0 упрощённая сцена, ?q=2 полная без автоподбора
+// Лёгкая версия: ?q=0 или выбор пользователя в подвале (хранится в браузере). ?q=2 принудительно полная сцена без автоподбора (для проверок).
 const forcedFull = params.get('q') === '2';
+const liteChosen = store.get('gds-lite') === '1';
+const forcedLight = params.get('q') === '0' || (liteChosen && !forcedFull);
 const DT_MAX = Number(params.get('dtmax')) || 0.05; // верхняя граница шага времени (для отладки на медленных машинах)
 if (reduced) root.classList.add('reduced');
 
@@ -278,6 +282,15 @@ function setFlavor(i) {
 }
 showFlavor(0);
 
+// переключатель лёгкой версии в подвале
+{
+  const btn = $('#lite-toggle');
+  const on = liteChosen;
+  btn.setAttribute('aria-pressed', String(on));
+  btn.textContent = on ? 'Вернуть полную версию' : 'Лёгкая версия для слабых устройств';
+  btn.addEventListener('click', () => { store.set('gds-lite', on ? '0' : '1'); location.reload(); });
+}
+
 // меню на телефоне
 const navToggle = $('#nav-toggle');
 const setMenu = (open) => {
@@ -368,6 +381,28 @@ function targets(y) {
   return t;
 }
 
+// ── версия без 3D: смена фона-картинки по разделам ────────────────
+const fbLayers = [$('#fb0'), $('#fb1')];
+let fbIdx = 0;
+let fbUrl = '';
+function setFallbackBg(url) {
+  if (url === fbUrl) return;
+  fbUrl = url;
+  const next = fbLayers[1 - fbIdx];
+  next.style.backgroundImage = `url("${url}")`;
+  next.classList.add('on');
+  fbLayers[fbIdx].classList.remove('on');
+  fbIdx = 1 - fbIdx;
+}
+function updateFallbackBg(y) {
+  const portrait = innerWidth / innerHeight < 0.95;
+  let url = portrait ? posterM : posterD; // первый экран: луна и банка
+  if (y > L.prodTop - L.vh * 0.5 && y < L.flavTop - L.vh * 0.5) url = PLANET_URLS[10]; // упаковка: планета
+  else if (y >= L.flavTop - L.vh * 0.5) url = PLANET_URLS[flavorIdx]; // вкусы: планета выбранного вкуса
+  setFallbackBg(url);
+  root.style.setProperty('--scrim', y < L.blendTop - L.vh * 0.6 ? '1' : '0');
+}
+
 // ── главный цикл ───────────────────────────────────────────────────
 let last = performance.now();
 const perf = { warm: 240, samples: [], done: forcedLight || forcedFull };
@@ -443,10 +478,12 @@ function frame(now) {
   if (t.exit < 0.02) requestStage(inFlavors && t.jar.vis ? flavorIdx : t.hero > 0.5 ? 10 : -1);
 
   // затемнение под текстом на телефоне (закреплённый слой): проявляется вместе с заставкой, чуть мягче в первом экране, уходит с выходом из сцены
-  const scrim = clamp(cur.intro * 1.3) * lerp(0.5, 1, t.hero) * (1 - t.exit);
+  // (раньше в разметке по ошибке стояли два слоя затемнения; внешний вид сохранён: плотность 1-(1-v)^2 одним слоем)
+  const v = clamp(cur.intro * 1.3) * lerp(0.5, 1, t.hero) * (1 - t.exit);
+  const scrim = 1 - (1 - v) * (1 - v);
   if (Math.abs(scrim - lastScrim) > 0.004) { lastScrim = scrim; root.style.setProperty('--scrim', scrim.toFixed(3)); }
 
-  if (!sc) return;
+  if (!sc) { updateFallbackBg(window.scrollY); return; }
   sc.update({ ...cur, jar: { ...cur.jar, ry: cur.jar.ry + spin.v } });
 
   // выноски на банке: пока на экране блок «Упаковка», только на широком экране
@@ -537,6 +574,7 @@ async function boot() {
   await nextFrame();
 
   try {
+    if (params.get('nogl') === '1') throw new Error('nogl: версия без 3D включена вручную');
     sc = await createScene($('#gl'), { lowPower, light: forcedLight });
     progress(0.4);
     await nextFrame();
@@ -551,7 +589,7 @@ async function boot() {
     await sc.compile();
     progress(0.94);
   } catch (err) {
-    console.error('WebGL недоступен, показываем статичную версию', err);
+    console.warn('3D недоступно, показываем версию без него:', err.message || err);
     root.classList.add('no-webgl');
     sc = null;
   }

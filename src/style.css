@@ -23,6 +23,13 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { font-size: clamp(16px, 0.36vw + 12.8px, 20px); background: var(--bg); color-scheme: dark; -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #34343a transparent; }
 html.is-locked, html.menu-open { overflow: hidden; }
+
+/* версия без 3D (нет WebGL или он не запустился): фон из готовых картинок вместо сцены, тот же текст и навигация */
+.fb { display: none; position: fixed; inset: 0; z-index: 0; }
+.no-webgl .fb { display: block; }
+.no-webgl #gl { display: none; }
+.fb-l { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 0.7s ease-out; }
+.fb-l.on { opacity: 1; }
 html { -webkit-tap-highlight-color: transparent; }
 a, button, label.check { touch-action: manipulation; }
 input, textarea { scroll-margin-top: 6rem; scroll-margin-bottom: 9rem; }
@@ -86,7 +93,15 @@ main, .footer { position: relative; z-index: 2; }
 .nav.away { transform: translateY(-100%); }
 .nav-logo .logo-mark { width: 4rem; }
 .nav-toggle { display: none; }
-.scrim { display: none; }
+.scrim {
+  display: none; position: fixed; left: 0; right: 0; bottom: 0; height: 82vh; height: 82svh; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
+  background: linear-gradient(to top, rgba(8, 8, 10, 0.99) 0%, rgba(8, 8, 10, 0.98) 24%, rgba(8, 8, 10, 0.947) 40%, rgba(8, 8, 10, 0.863) 54%, rgba(8, 8, 10, 0.708) 66%, rgba(8, 8, 10, 0.496) 77%, rgba(8, 8, 10, 0.278) 86%, rgba(8, 8, 10, 0.116) 93%, rgba(8, 8, 10, 0) 100%);
+}
+.no-webgl .scrim { display: block; }
+/* версия без 3D на широком экране: текст слева, поэтому затемнение боковое, а не нижнее */
+@media (min-width: 761px) {
+  .no-webgl .scrim { top: 0; right: auto; width: 62vw; height: 100vh; background: linear-gradient(to right, rgba(8, 8, 10, 0.82) 0%, rgba(8, 8, 10, 0.66) 55%, rgba(8, 8, 10, 0) 100%); }
+}
 .nav-logo { display: block; padding: 0.5rem 0; }
 .f-more { display: none; }
 .nav-menu-contact { display: none; }
@@ -214,6 +229,10 @@ main, .footer { position: relative; z-index: 2; }
 .foot-grid { display: grid; grid-template-columns: auto 1fr auto; gap: 24px 56px; align-items: start; }
 .foot-logo { width: 4.4rem; }
 .footer p { max-width: 78ch; font-size: 0.875rem; line-height: 1.6; color: var(--muted); }
+.foot-lite { grid-column: 1 / -1; }
+.lite-toggle { all: unset; grid-column: 1 / -1; justify-self: start; padding: 0.7rem 0; font-size: 0.875rem; color: var(--muted); text-decoration: underline; text-underline-offset: 0.25em; cursor: pointer; }
+.lite-toggle:hover { color: var(--ink); }
+.lite-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 .footer .warn { max-width: none; font-size: 1rem; font-weight: 600; color: var(--ink); }
 
 /* возрастной экран */
@@ -270,11 +289,7 @@ main, .footer { position: relative; z-index: 2; }
   /* Затемнение под текстом: один слой, закреплённый на экране, а не по секциям. У секционных затемнений был резкий край там, где
      секция заканчивается, и он проезжал по экрану при прокрутке. Закреплённый слой не двигается, его прозрачность ведёт main.js (--scrim):
      появляется вместе с заставкой и уходит, когда сцену закрывают сплошные блоки. */
-  .scrim {
-    display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 82vh; height: 82svh; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
-    background: linear-gradient(to top, rgba(8, 8, 10, 0.9) 0%, rgba(8, 8, 10, 0.86) 24%, rgba(8, 8, 10, 0.77) 40%, rgba(8, 8, 10, 0.63) 54%,
-      rgba(8, 8, 10, 0.46) 66%, rgba(8, 8, 10, 0.29) 77%, rgba(8, 8, 10, 0.15) 86%, rgba(8, 8, 10, 0.06) 93%, rgba(8, 8, 10, 0) 100%);
-  }
+  .scrim { display: block; }
   .hero-copy { position: relative; z-index: 1; }
   /* смена текста вкуса идёт каскадом: название, перевод, описание, данные звезды */
   .f-swap { transition: opacity 0.35s ease-out, transform 0.6s var(--ease); }
