@@ -13,7 +13,10 @@ var CONFIG = {
   SENDER_NAME: 'Сайт GDS',
   // Отправитель «Я» (владелец), поэтому счётчик Gmail: на обычном аккаунте не больше 100 писем в сутки.
   MAX_PER_CONTACT_PER_HOUR: 3,
-  MAX_TOTAL_PER_HOUR: 30,
+  MAX_TOTAL_PER_HOUR: 10,
+  // Запас дневной почтовой квоты: ниже него заявки не принимаются (сайт откроет почту посетителя), а владельцу уходит
+  // одно предупреждение (возможно, идёт рассылка спама).
+  QUOTA_RESERVE: 30,
   // Человек не заполнит форму быстрее. Слишком быстрые отправки отклоняются (можно повторить).
   MIN_FILL_MS: 2500,
   MAX_FILL_MS: 6 * 60 * 60 * 1000,
@@ -36,13 +39,16 @@ function doPost(e) {
     var request = JSON.parse(raw || '{}');
 
     // Ловушка для ботов: поле скрыто от людей. Притворяемся, что всё в порядке, письмо не шлём.
-    if (request && request.website) return json_({ ok: true });
+    if (request && request.hp) return json_({ ok: true });
 
     var lead = validate_(request);
     if (lead.error) return json_({ ok: false, error: lead.error });
 
     if (!withinRateLimit_(lead.contact)) return json_({ ok: false, error: 'rate_limited' });
-    if (MailApp.getRemainingDailyQuota() < 1) return json_({ ok: false, error: 'unavailable' });
+    if (MailApp.getRemainingDailyQuota() < CONFIG.QUOTA_RESERVE) {
+      warnQuota_();
+      return json_({ ok: false, error: 'unavailable' });
+    }
 
     send_(lead);
     return json_({ ok: true });
@@ -153,6 +159,22 @@ function send_(lead) {
   var options = { name: CONFIG.SENDER_NAME };
   if (lead.contactIsEmail) options.replyTo = lead.contact;
   MailApp.sendEmail(owner, subject, body, options);
+}
+
+// Одно предупреждение владельцу не чаще раза в шесть часов (максимум, на который хватает кеша Google).
+function warnQuota_() {
+  var cache = CacheService.getScriptCache();
+  if (cache.get('quota-warned')) return;
+  cache.put('quota-warned', '1', 21600);
+  try {
+    MailApp.sendEmail(
+      Session.getEffectiveUser().getEmail(),
+      'Сайт GDS: почтовая квота почти исчерпана',
+      'Заявки с сайта временно не принимаются через этот скрипт (посетители отправляют их из своей почтовой программы). Возможно, на форму идёт рассылка спама. Проверьте почту и журнал запусков в Apps Script; квота обновляется раз в сутки.'
+    );
+  } catch (err) {
+    console.error('quota warning failed');
+  }
 }
 
 function json_(object) {

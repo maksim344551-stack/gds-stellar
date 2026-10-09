@@ -41,7 +41,7 @@ function makeScript({ quota = 100 } = {}) {
 
 const good = (over = {}) => ({
   name: 'Иван Петров', company: 'ООО Ромашка', city: 'Казань', contact: 'ivan@example.com',
-  message: 'Хотим обсудить поставки.', consent: true, trade: true, website: '', t: 9000, ...over,
+  message: 'Хотим обсудить поставки.', consent: true, trade: true, hp: '', t: 9000, ...over,
 });
 
 test('правильная заявка: одно письмо владельцу, ответ ok', () => {
@@ -66,7 +66,7 @@ test('телефон вместо почты: письмо уходит без r
 
 test('ловушка для ботов: ответ ok, письма нет', () => {
   const s = makeScript();
-  assert.deepEqual(s.post(good({ website: 'http://spam.example' })), { ok: true });
+  assert.deepEqual(s.post(good({ hp: 'http://spam.example' })), { ok: true });
   assert.equal(s.mails.length, 0);
 });
 
@@ -137,13 +137,23 @@ test('общий лимит в час', () => {
   const s = makeScript();
   let sent = 0;
   for (let i = 0; i < 40; i++) if (s.post(good({ contact: `u${i}@example.com` })).ok) sent++;
-  assert.equal(sent, 30);
+  assert.equal(sent, 10);
 });
 
-test('суточная квота почты исчерпана: ответ unavailable, письма нет', () => {
-  const s = makeScript({ quota: 0 });
+test('запас суточной квоты: заявки не принимаются, владельцу одно предупреждение', () => {
+  const s = makeScript({ quota: 29 });
   assert.equal(s.post(good()).error, 'unavailable');
-  assert.equal(s.mails.length, 0);
+  assert.equal(s.post(good({ contact: 'other@example.com' })).error, 'unavailable');
+  assert.equal(s.mails.length, 1, 'только предупреждение, не заявки');
+  assert.equal(s.mails[0].to, 'owner@example.test');
+  assert.match(s.mails[0].subject, /квота/);
+});
+
+test('квота на границе запаса ещё принимает заявки', () => {
+  const s = makeScript({ quota: 30 });
+  assert.equal(s.post(good()).ok, true);
+  assert.equal(s.mails.length, 1);
+  assert.match(s.mails[0].subject, /Заявка с сайта GDS/);
 });
 
 test('мусорный JSON и слишком большое тело', () => {

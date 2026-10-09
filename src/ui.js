@@ -44,6 +44,7 @@ export function initReveals(reduced) {
 
 // Куда уходит письмо, если прямая отправка недоступна: почтовая программа посетителя открывается с готовым письмом.
 const FALLBACK_MAIL = 'maksim344551@gmail.com';
+const MAIL_MESSAGE_MAX = 600;
 const PHONE = ['8', '800', '300', '4999'].join(String.fromCharCode(160)); // с неразрывными пробелами
 
 /**
@@ -54,6 +55,7 @@ export function initForm() {
   const form = $('#lead-form');
   const note = $('#form-note');
   const button = $('button[type="submit"]', form);
+  form.hidden = false; // без JavaScript форма остаётся скрытой (см. noscript в index.html)
   const opened = performance.now();
   const rules = [
     { input: form.elements.name, err: $('#e-name'), ok: (i) => i.value.trim() !== '', text: 'Укажите имя' },
@@ -72,13 +74,18 @@ export function initForm() {
   });
 
   const openMail = (lead) => {
+    // длинные ссылки mailto: почтовые программы обрезают, поэтому в письмо идёт не больше MAIL_MESSAGE_MAX знаков сообщения
+    const cut = lead.message.length > MAIL_MESSAGE_MAX;
     const body = [
       `Имя: ${lead.name}`,
       `Компания: ${lead.company}`,
       `Город: ${lead.city}`,
       `Контакт: ${lead.contact}`,
       '',
-      lead.message,
+      cut ? `${lead.message.slice(0, MAIL_MESSAGE_MAX)}…` : lead.message,
+      ...(cut ? ['', `(Сообщение сокращено до ${MAIL_MESSAGE_MAX} знаков: допишите остальное.)`] : []),
+      '',
+      'Согласие на обработку персональных данных и подтверждение, что мне есть 18 лет и я представляю юридическое лицо или ИП, торгующее табачной продукцией, даны на сайте.',
     ].join('\n');
     const href = `mailto:${FALLBACK_MAIL}?subject=${encodeURIComponent('Заявка на сотрудничество GDS')}&body=${encodeURIComponent(body)}`;
     window.location.href = href;
@@ -117,7 +124,7 @@ export function initForm() {
       message: val('message'),
       consent: true,
       trade: true,
-      website: val('website'),
+      hp: val('hp'),
       t: Math.round(performance.now() - opened),
     };
 

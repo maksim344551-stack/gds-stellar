@@ -9,6 +9,7 @@
   --muted: #98927f;
   --line: rgba(235, 230, 218, 0.14);
   --line-2: rgba(235, 230, 218, 0.3);
+  --field-line: rgba(235, 230, 218, 0.45); /* границы полей формы: контраст не ниже 3:1 */
   --gold: #cdac62;
   --gold-hi: #dcc17f;
   --fa: #cdac62; /* цвет выбранного вкуса: действует только в блоке «Вкусы» */
@@ -194,12 +195,13 @@ main, .footer { position: relative; z-index: 2; }
 .contacts a:hover { color: var(--gold); border-color: var(--gold); }
 
 .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.2rem 4rem; max-width: 68rem; }
+.form[hidden] { display: none; }
 .form .full { grid-column: 1 / -1; }
 .form-end { display: flex; flex-wrap: wrap; align-items: center; gap: 20px; }
 .field { display: grid; align-content: start; gap: 6px; }
 .field label { font-size: 0.9rem; color: var(--muted); }
 .field input:not([type='checkbox']), .field textarea {
-  padding: 0.7rem 0; border: 0; border-bottom: 1px solid var(--line-2); border-radius: 0; background: transparent; color: var(--ink); font: inherit; font-size: 1.1rem;
+  padding: 0.7rem 0; border: 0; border-bottom: 1px solid var(--field-line); border-radius: 0; background: transparent; color: var(--ink); font: inherit; font-size: 1.1rem;
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .field textarea { resize: vertical; }

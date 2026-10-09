@@ -482,7 +482,7 @@ function startIntro() {
   tween({ duration: 2800, ease: easeOut, onUpdate: (v) => { intro.v = v; } });
 }
 
-const inertTargets = [$('#main'), $('.footer'), el.nav];
+const inertTargets = [$('#main'), $('.footer'), el.nav, $('.skip')];
 const setInert = (v) => inertTargets.forEach((n) => { if (n) n.inert = v; });
 
 function showGate() {
