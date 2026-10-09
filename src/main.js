@@ -5,6 +5,7 @@ import { nb, typografDOM } from './typo.js';
 import { hydrateIcons, initForm, initReveals } from './ui.js';
 import { createScene } from './scene.js';
 import { loadSkinAssets, warmSkins } from './skins.js';
+import { loadCatalog, applyCatalog } from './catalog.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -501,6 +502,9 @@ async function medianFrameMs(n) {
   return times[times.length >> 1];
 }
 
+// описания вкусов из Supabase (запрос идёт параллельно со шрифтами и сценой, при сбое остаются тексты из data.js)
+const catalogReady = loadCatalog();
+
 async function boot() {
   progress(0.06);
   try {
@@ -510,6 +514,7 @@ async function boot() {
     ]);
   } catch { /* продолжаем с системными шрифтами */ }
   progress(0.2);
+  if (applyCatalog(FLAVORS, await catalogReady)) showFlavor(flavorIdx); // новые тексты вкусов показываем сразу
   await nextFrame();
 
   try {
