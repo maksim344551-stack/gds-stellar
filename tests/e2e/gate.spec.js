@@ -10,5 +10,6 @@ test('возрастной экран: отказ закрывает сайт, �
   await page.locator('#gate-yes').click();
   await expect(page.locator('#gate')).toBeHidden({ timeout: 10_000 });
   expect(await page.evaluate(() => document.documentElement.classList.contains('is-locked'))).toBe(false);
-  expect(await page.evaluate(() => localStorage.getItem('gds-18'))).toBe('1');
+  expect(await page.evaluate(() => sessionStorage.getItem('gds-18'))).toBe('1'); // ответ живёт только до закрытия вкладки
+  expect(await page.evaluate(() => localStorage.getItem('gds-18'))).toBeNull();
 });

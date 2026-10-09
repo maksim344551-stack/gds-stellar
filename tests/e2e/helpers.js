@@ -6,7 +6,7 @@ export async function open(page, { query = '?q=2&dtmax=1', age = true } = {}) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(`console: ${m.text()}`); });
-  if (age) await page.addInitScript(() => { try { localStorage.setItem('gds-18', '1'); } catch { /* приватный режим */ } });
+  if (age) await page.addInitScript(() => { try { sessionStorage.setItem('gds-18', '1'); } catch { /* приватный режим */ } });
   await page.goto(`/${query}`);
   await page.waitForFunction(() => !document.querySelector('#loader'), null, { timeout: 150_000 });
   await page.waitForTimeout(1500);
