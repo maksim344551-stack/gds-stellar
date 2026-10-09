@@ -40,7 +40,7 @@ const el = {
   loader: $('#loader'), fill: $('#ld-fill'), pct: $('#ld-pct'),
   gate: $('#gate'), nav: $('#nav'),
   product: $('#product'), flavors: $('#flavors'), blend: $('#blend'), partners: $('#partners'), contact: $('#contact'),
-  fIdx: $('#f-idx'), fName: $('#f-name'), fRu: $('#f-ru'), fDesc: $('#f-desc'), fAstro: $('#f-astro'), fList: $('#f-list'),
+  fIdx: $('#f-idx'), fName: $('#f-name'), fRu: $('#f-ru'), fDesc: $('#f-desc'), fAstro: $('#f-astro'),
   fPrev: $('#f-prev'), fNext: $('#f-next'), fPanel: $('.f-panel'), fMore: $('#f-more'),
   overlay: $('#overlay'),
   navLinks: $$('.nav-links a[data-sec]'),
@@ -78,17 +78,6 @@ function stepTweens(now) {
 }
 
 // ── элементы, зависящие от данных ──────────────────────────────────
-FLAVORS.forEach((f, i) => {
-  const li = document.createElement('li');
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.textContent = f.star;
-  b.dataset.i = String(i);
-  b.style.setProperty('--dot', f.a);
-  li.append(b);
-  el.fList.append(li);
-});
-const fButtons = $$('button', el.fList);
 const swapEls = [el.fName, el.fRu, el.fDesc, el.fAstro];
 swapEls.forEach((e) => e.classList.add('f-swap'));
 
@@ -180,13 +169,6 @@ addEventListener('resize', updateMore);
 
 function showFlavor(i) {
   const f = FLAVORS[i];
-  fButtons.forEach((b, k) => (k === i ? b.setAttribute('aria-current', 'true') : b.removeAttribute('aria-current')));
-  // на телефоне список вкусов прокручивается вбок: выбранный вкус держим в центре, чтобы он не уходил за край экрана
-  const list = el.fList;
-  if (list.scrollWidth > list.clientWidth + 4) {
-    const b = fButtons[i];
-    list.scrollTo({ left: b.parentElement.offsetLeft - (list.clientWidth - b.offsetWidth) / 2, behavior: reduced ? 'auto' : 'smooth' });
-  }
   swapEls.forEach((e) => e.classList.add('out'));
   collapseDesc();
   clearTimeout(swapTimer);
@@ -276,7 +258,7 @@ function requestStage(want) {
   });
 }
 
-// Вкус выбирает пользователь (нажатие, стрелки, клавиши, свайп); прокрутка вкус не меняет.
+// Вкус выбирает пользователь (стрелки, клавиши, свайп); прокрутка вкус не меняет.
 let flavorsActive = false;
 function setFlavor(i) {
   if (i === flavorIdx) return;
@@ -286,7 +268,6 @@ function setFlavor(i) {
 }
 showFlavor(0);
 
-fButtons.forEach((b) => b.addEventListener('click', () => setFlavor(Number(b.dataset.i))));
 // меню на телефоне
 const navToggle = $('#nav-toggle');
 const setMenu = (open) => {

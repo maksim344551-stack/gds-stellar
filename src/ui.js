@@ -1,5 +1,6 @@
 import arrowLeft from '@phosphor-icons/core/assets/light/arrow-left-light.svg?raw';
 import arrowRight from '@phosphor-icons/core/assets/light/arrow-right-light.svg?raw';
+import { sendLead, leadEndpoint } from './lead.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -41,14 +42,24 @@ export function initReveals(reduced) {
   items.forEach((e) => io.observe(e));
 }
 
-/** Форма заявки: бэкенда нет, поэтому по отправке открывается почтовый клиент с готовым письмом. */
+// Куда уходит письмо, если прямая отправка недоступна: почтовая программа посетителя открывается с готовым письмом.
+const FALLBACK_MAIL = 'maksim344551@gmail.com';
+const PHONE = ['8', '800', '300', '4999'].join(String.fromCharCode(160)); // с неразрывными пробелами
+
+/**
+ * Форма заявки. Заявка уходит на почту владельца через Google Apps Script (src/lead.js). Если адрес приложения
+ * не задан или связи нет, открывается почтовая программа посетителя с готовым письмом, как раньше.
+ */
 export function initForm() {
   const form = $('#lead-form');
   const note = $('#form-note');
+  const button = $('button[type="submit"]', form);
+  const opened = performance.now();
   const rules = [
     { input: form.elements.name, err: $('#e-name'), ok: (i) => i.value.trim() !== '', text: 'Укажите имя' },
     { input: form.elements.contact, err: $('#e-contact'), ok: (i) => i.value.trim() !== '', text: 'Укажите телефон или e-mail' },
     { input: form.elements.consent, err: $('#e-consent'), ok: (i) => i.checked, text: 'Подтвердите согласие, чтобы отправить заявку' },
+    { input: form.elements.trade, err: $('#e-trade'), ok: (i) => i.checked, text: 'Подтвердите возраст и вид деятельности, чтобы отправить заявку' },
   ];
   const show = (r, bad) => {
     r.err.textContent = bad ? r.text : '';
@@ -60,8 +71,35 @@ export function initForm() {
     r.input.addEventListener('change', () => { if (r.ok(r.input)) show(r, false); });
   });
 
-  form.addEventListener('submit', (e) => {
+  const openMail = (lead) => {
+    const body = [
+      `Имя: ${lead.name}`,
+      `Компания: ${lead.company}`,
+      `Город: ${lead.city}`,
+      `Контакт: ${lead.contact}`,
+      '',
+      lead.message,
+    ].join('\n');
+    const href = `mailto:${FALLBACK_MAIL}?subject=${encodeURIComponent('Заявка на сотрудничество GDS')}&body=${encodeURIComponent(body)}`;
+    window.location.href = href;
+    // на телефоне без настроенной почты ничего не откроется: через пару секунд подсказываем, что делать
+    setTimeout(() => {
+      if (!document.hidden) note.textContent = `Если почтовая программа не открылась, напишите на ${FALLBACK_MAIL} или позвоните ${PHONE}.`;
+    }, 2200);
+  };
+
+  // что сказать посетителю, если сервер не принял заявку по понятной причине
+  const REFUSALS = {
+    rate_limited: `Слишком много заявок за короткое время. Попробуйте позже или позвоните ${PHONE}.`,
+    too_fast: 'Проверьте данные и нажмите «Отправить заявку» ещё раз.',
+    'invalid_input:contact': 'Проверьте телефон или e-mail: он не похож на настоящий.',
+    'invalid_input:name': 'Проверьте имя: оно пустое или слишком длинное.',
+    'invalid_input:message': 'Сообщение слишком длинное: сократите его, пожалуйста.',
+  };
+
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (button.disabled) return;
     const bad = rules.filter((r) => !r.ok(r.input));
     rules.forEach((r) => show(r, bad.includes(r)));
     if (bad.length) {
@@ -71,20 +109,39 @@ export function initForm() {
     }
     const fd = new FormData(form);
     const val = (k) => String(fd.get(k) || '').trim();
-    const body = [
-      `Имя: ${val('name')}`,
-      `Компания: ${val('company')}`,
-      `Город: ${val('city')}`,
-      `Контакт: ${val('contact')}`,
-      '',
-      val('message'),
-    ].join('\n');
-    const href = `mailto:Mtechno.tobacco@gmail.com?subject=${encodeURIComponent('Заявка на сотрудничество GDS')}&body=${encodeURIComponent(body)}`;
-    note.textContent = 'Открываем почтовый клиент с готовым письмом.';
-    window.location.href = href;
-    // на телефоне без настроенной почты ничего не откроется: через пару секунд подсказываем, что делать
-    setTimeout(() => {
-      if (!document.hidden) note.textContent = 'Если почтовая программа не открылась, напишите на Mtechno.tobacco@gmail.com или позвоните 8\u00a0800\u00a0300\u00a04999.';
-    }, 2200);
+    const lead = {
+      name: val('name'),
+      company: val('company'),
+      city: val('city'),
+      contact: val('contact'),
+      message: val('message'),
+      consent: true,
+      trade: true,
+      website: val('website'),
+      t: Math.round(performance.now() - opened),
+    };
+
+    if (!leadEndpoint) {
+      note.textContent = 'Открываем почтовый клиент с готовым письмом.';
+      openMail(lead);
+      return;
+    }
+
+    button.disabled = true;
+    note.textContent = 'Отправляем заявку…';
+    const res = await sendLead(lead);
+    button.disabled = false;
+    if (res.ok) {
+      form.reset();
+      note.textContent = 'Заявка отправлена. Мы свяжемся с вами.';
+      return;
+    }
+    if (REFUSALS[res.error]) {
+      note.textContent = REFUSALS[res.error];
+      return;
+    }
+    // нет связи, сбой сервера или неизвестный ответ: заявку не теряем, отправляем письмом из почтовой программы
+    note.textContent = 'Не удалось отправить заявку напрямую. Открываем почтовую программу с готовым письмом.';
+    openMail(lead);
   });
 }

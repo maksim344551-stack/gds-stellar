@@ -116,7 +116,6 @@
           <button type="button" class="f-more" id="f-more" aria-expanded="false">Подробнее</button>
           <dl class="f-astro" id="f-astro"></dl>
         </div>
-        <ol class="f-list" id="f-list" aria-label="Вкусы"></ol>
       </div>
     </section>
 
@@ -198,9 +197,14 @@
           <div class="field"><label for="f-city">Город</label><input id="f-city" name="city" autocomplete="address-level2" /></div>
           <div class="field"><label for="f-contact">Телефон или e-mail</label><input id="f-contact" name="contact" autocomplete="off" required aria-describedby="e-contact" /><p class="err" id="e-contact" role="alert"></p></div>
           <div class="field full"><label for="f-msg">Сообщение</label><textarea id="f-msg" name="message" rows="3"></textarea></div>
+          <div class="hp" aria-hidden="true"><label for="f-site">Сайт</label><input id="f-site" name="website" type="text" tabindex="-1" autocomplete="off" /></div>
           <div class="field full">
-            <label class="check"><input type="checkbox" name="consent" required aria-describedby="e-consent" /><span>Согласен на обработку персональных данных. Мне есть 18 лет, я представляю юридическое лицо или ИП, торгующее табачной продукцией.</span></label>
+            <label class="check"><input type="checkbox" name="consent" required aria-describedby="e-consent" /><span>Согласен на обработку моих персональных данных (имя, компания, город, телефон или e-mail, текст сообщения) для ответа на заявку, на условиях <a href="./privacy.html" target="_blank" rel="noopener">Политики конфиденциальности</a>.</span></label>
             <p class="err" id="e-consent" role="alert"></p>
+          </div>
+          <div class="field full">
+            <label class="check"><input type="checkbox" name="trade" required aria-describedby="e-trade" /><span>Мне есть 18 лет, я представляю юридическое лицо или ИП, торгующее табачной продукцией.</span></label>
+            <p class="err" id="e-trade" role="alert"></p>
           </div>
           <div class="full form-end">
             <button class="btn btn-solid" type="submit">Отправить заявку</button>
@@ -214,7 +218,7 @@
   <footer class="footer">
     <div class="wrap foot-grid">
       <div class="logo-mark foot-logo" role="img" aria-label="GDS"></div>
-      <p>© М-Техно. GDS «Джедес». Информация предназначена исключительно для оптовых партнёров, совершеннолетних лиц, осуществляющих торговлю табачной продукцией, и не является рекламой или публичной офертой.</p>
+      <p>© М-Техно. GDS «Джедес». Информация предназначена исключительно для оптовых партнёров, совершеннолетних лиц, осуществляющих торговлю табачной продукцией, и не является рекламой или публичной офертой. <a href="./privacy.html">Политика конфиденциальности</a></p>
       <p class="warn">Курение вредит вашему здоровью.</p>
     </div>
   </footer>
