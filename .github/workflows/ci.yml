@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Проверки (код, сборка, вес, тесты в трёх движках)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Уязвимости в зависимостях сайта
+        run: npm audit --omit=dev --audit-level=high
+      - name: Проверка кода
+        run: npm run lint
+      - name: Сборка
+        run: npm run build
+      - name: Бюджет веса
+        run: npm run budget
+      - name: Браузеры для тестов
+        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Тесты (Chromium, Firefox, WebKit)
+        run: npx playwright test
+      - name: Отчёт о падении тестов
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  deploy:
+    name: Выкладка
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # запись в ветку gh-pages (GitHub Pages)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: GitHub Pages
+        run: npm run deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: statichost.eu (только если заданы секреты STATICHOST_SITE и STATICHOST_APIKEY)
+        env:
+          STATICHOST_SITE: ${{ secrets.STATICHOST_SITE }}
+          STATICHOST_APIKEY: ${{ secrets.STATICHOST_APIKEY }}
+        run: |
+          if [ -n "$STATICHOST_SITE" ] && [ -n "$STATICHOST_APIKEY" ]; then
+            npm run deploy:statichost
+          else
+            echo "statichost: секреты не заданы, шаг пропущен"
+          fi

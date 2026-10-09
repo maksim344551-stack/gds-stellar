@@ -5,3 +5,5 @@ dist
 .DS_Store
 .env*
 !.env.example
+playwright-report
+test-results

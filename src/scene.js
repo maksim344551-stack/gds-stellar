@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
 import moonUrl from './assets/moon.webp';
 import { phone } from './env.js';
