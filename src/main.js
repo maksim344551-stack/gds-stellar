@@ -41,7 +41,7 @@ const el = {
   gate: $('#gate'), nav: $('#nav'),
   product: $('#product'), flavors: $('#flavors'), blend: $('#blend'), partners: $('#partners'), contact: $('#contact'),
   fIdx: $('#f-idx'), fName: $('#f-name'), fRu: $('#f-ru'), fDesc: $('#f-desc'), fAstro: $('#f-astro'), fList: $('#f-list'),
-  fPrev: $('#f-prev'), fNext: $('#f-next'),
+  fPrev: $('#f-prev'), fNext: $('#f-next'), fPanel: $('.f-panel'), fMore: $('#f-more'),
   overlay: $('#overlay'),
   navLinks: $$('.nav-links a[data-sec]'),
 };
@@ -149,6 +149,7 @@ const hotTarget = GOLD_HOT.clone();
 const coolTarget = GOLD_COOL.clone();
 const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
 let lastScrim = -1;
+let navRef = 0;
 let skinId = 'brand';
 let flavorIdx = 0;
 let swapTimer = 0;
@@ -157,6 +158,25 @@ let spinTween = null;
 let prevY = 0;
 let section = '';
 let sc = null;
+
+// На телефоне длинное описание вкуса обрезается; кнопка «Подробнее» показывается только когда текст не поместился.
+function collapseDesc() {
+  el.fPanel.classList.remove('open');
+  el.fMore.setAttribute('aria-expanded', 'false');
+  el.fMore.textContent = 'Подробнее';
+}
+function updateMore() {
+  requestAnimationFrame(() => {
+    const open = el.fPanel.classList.contains('open');
+    el.fMore.classList.toggle('show', open || el.fDesc.scrollHeight > el.fDesc.clientHeight + 2);
+  });
+}
+el.fMore.addEventListener('click', () => {
+  const open = el.fPanel.classList.toggle('open');
+  el.fMore.setAttribute('aria-expanded', String(open));
+  el.fMore.textContent = open ? 'Свернуть' : 'Подробнее';
+});
+addEventListener('resize', updateMore);
 
 function showFlavor(i) {
   const f = FLAVORS[i];
@@ -168,6 +188,7 @@ function showFlavor(i) {
     list.scrollTo({ left: b.parentElement.offsetLeft - (list.clientWidth - b.offsetWidth) / 2, behavior: reduced ? 'auto' : 'smooth' });
   }
   swapEls.forEach((e) => e.classList.add('out'));
+  collapseDesc();
   clearTimeout(swapTimer);
   swapTimer = setTimeout(() => {
     el.fIdx.textContent = pad(i + 1);
@@ -188,6 +209,7 @@ function showFlavor(i) {
       el.fAstro.append(row);
     });
     swapEls.forEach((e) => e.classList.remove('out'));
+    updateMore();
   }, reduced ? 0 : 240);
 }
 
@@ -269,6 +291,7 @@ fButtons.forEach((b) => b.addEventListener('click', () => setFlavor(Number(b.dat
 const navToggle = $('#nav-toggle');
 const setMenu = (open) => {
   el.nav.classList.toggle('open', open);
+  root.classList.toggle('menu-open', open); // страница под меню не прокручивается
   navToggle.setAttribute('aria-expanded', String(open));
 };
 navToggle.addEventListener('click', () => setMenu(!el.nav.classList.contains('open')));
@@ -343,7 +366,8 @@ function targets(y) {
   t.jar = {
     x: narrow ? 0 : lerp(1.8, 1.9, hero),
     y: (narrow ? lerp(1.4, 1.25, hero) : 0) + exit * 8 - (1 - iv) * 1.2,
-    s: (narrow ? 0.74 : 1.12) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
+    // на невысоких телефонах банка меньше, чтобы подпись блока не заезжала на неё
+    s: (narrow ? 0.74 * lerp(0.82, 1, clamp((innerHeight - 568) / 276)) : 1.12) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
     // лицевая сторона (вкус, логотип) всегда к покупателю, банка лишь слегка покачивается
     ry: face + sway * swayAmp + exit * Math.PI * 1.2,
     rx: lerp(0.36, 0.26, flavT) - pointer.y * 0.06,
@@ -378,9 +402,13 @@ function frame(now) {
     el.navLinks.forEach((a) => (a.dataset.sec === sec ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current')));
   }
   el.nav.classList.toggle('solid', y > 40);
-  // ниже 3D-сцены шапка без фона: чтобы не накладываться на текст, она уезжает вверх при прокрутке вниз и возвращается при прокрутке вверх
-  if (y > prevY + 0.5 && y > L.blendTop - L.vh * 0.5) el.nav.classList.add('away');
-  else if (y < prevY - 0.5 || y <= L.blendTop - L.vh * 0.5) el.nav.classList.remove('away');
+  // Шапка без фона, поэтому на тексте она читалась бы плохо: при прокрутке вниз она уезжает вверх, при прокрутке вверх возвращается.
+  // На телефоне это работает с первого экрана, на компьютере ниже сцены. navRef запоминает точку разворота, чтобы дрожание пальца не мигало шапкой.
+  const navFrom = innerWidth <= 900 ? 80 : L.blendTop - L.vh * 0.5;
+  if (y <= navFrom || el.nav.classList.contains('open')) { el.nav.classList.remove('away'); navRef = y; }
+  else if (el.nav.classList.contains('away')) {
+    if (y < navRef - 14) { el.nav.classList.remove('away'); navRef = y; } else navRef = Math.max(navRef, y);
+  } else if (y > navRef + 14) { el.nav.classList.add('away'); navRef = y; } else navRef = Math.min(navRef, y);
 
   // ниже сцены лежат сплошные блоки: 3D не рисуем, пока он полностью закрыт
   const sceneVisible = y < L.blendTop;

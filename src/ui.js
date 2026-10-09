@@ -82,5 +82,9 @@ export function initForm() {
     const href = `mailto:Mtechno.tobacco@gmail.com?subject=${encodeURIComponent('Заявка на сотрудничество GDS')}&body=${encodeURIComponent(body)}`;
     note.textContent = 'Открываем почтовый клиент с готовым письмом.';
     window.location.href = href;
+    // на телефоне без настроенной почты ничего не откроется: через пару секунд подсказываем, что делать
+    setTimeout(() => {
+      if (!document.hidden) note.textContent = 'Если почтовая программа не открылась, напишите на Mtechno.tobacco@gmail.com или позвоните 8\u00a0800\u00a0300\u00a04999.';
+    }, 2200);
   });
 }

@@ -22,7 +22,10 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 html { font-size: clamp(16px, 0.36vw + 12.8px, 20px); background: var(--bg); color-scheme: dark; -webkit-text-size-adjust: 100%; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #34343a transparent; }
-html.is-locked { overflow: hidden; }
+html.is-locked, html.menu-open { overflow: hidden; }
+html { -webkit-tap-highlight-color: transparent; }
+a, button, label.check { touch-action: manipulation; }
+input, textarea { scroll-margin-top: 6rem; scroll-margin-bottom: 9rem; }
 body {
   margin: 0; background: var(--bg); color: var(--ink);
   font-family: var(--sans); font-weight: 400; font-size: 1.0625rem; line-height: 1.65;
@@ -83,6 +86,8 @@ main, .footer { position: relative; z-index: 2; }
 .nav.away { transform: translateY(-100%); }
 .nav-logo .logo-mark { width: 4rem; }
 .nav-toggle { display: none; }
+.nav-logo { display: block; padding: 0.5rem 0; }
+.f-more { display: none; }
 .nav-menu-contact { display: none; }
 .nav-links { display: flex; gap: 2.2rem; margin-left: auto; }
 .nav-links a { position: relative; padding: 8px 0; font-size: 1rem; font-weight: 500; color: var(--ink-2); text-decoration: none; transition: color 0.25s; }
@@ -117,7 +122,7 @@ main, .footer { position: relative; z-index: 2; }
 .pin { position: sticky; top: 0; height: 100svh; display: flex; align-items: center; padding: 0 var(--edge); }
 /* блок «Упаковка»: один экран, текст слева, банка и планета справа (рисует сцена) */
 .stage { position: relative; min-height: 100svh; display: flex; align-items: center; padding: calc(var(--nav-h) + 1.5rem) var(--edge) 4rem; }
-.panel { position: relative; z-index: 3; width: min(33rem, 100%); }
+.panel { position: relative; z-index: 3; width: min(33rem, 100%, 54vw); }
 .specs { display: grid; }
 .specs > div { display: grid; grid-template-columns: minmax(7rem, 30%) 1fr; gap: 1rem; padding: 1.05rem 0; border-top: 1px solid var(--line); }
 .specs dt { font-size: 0.95rem; color: var(--muted); }
@@ -191,7 +196,8 @@ main, .footer { position: relative; z-index: 2; }
 .contacts > div { display: flex; flex-direction: column-reverse; justify-content: flex-end; gap: 6px; }
 .contacts dt { font-size: 0.9rem; color: var(--muted); }
 .contacts dd { font-weight: 500; }
-.contacts a { text-decoration: none; border-bottom: 1px solid var(--line-2); transition: border-color 0.25s, color 0.25s; }
+.contacts a { position: relative; text-decoration: none; border-bottom: 1px solid var(--line-2); transition: border-color 0.25s, color 0.25s; }
+.contacts a::after { content: ''; position: absolute; inset: -0.75rem -0.25rem; } /* зона нажатия 44 px, внешне ссылка не меняется */
 .contacts a:hover { color: var(--gold); border-color: var(--gold); }
 
 .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.2rem 4rem; max-width: 68rem; }
@@ -270,10 +276,20 @@ main, .footer { position: relative; z-index: 2; }
   .stage { align-items: flex-end; padding-top: calc(var(--nav-h) + 1rem); padding-bottom: 6svh; }
   /* затемнение под текстом: высота по блоку текста (чуть больше половины экрана), плавная кривая вместо линейной и проявление по прокрутке
      (--scrim задаёт main.js), чтобы тёмное пятно не въезжало в кадр вместе с секцией */
+  /* герой: под кнопками и текстом луна темнеет, иначе контурная кнопка теряется на светлом диске */
+  .hero { position: relative; }
+  .hero::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 62%; pointer-events: none; background: linear-gradient(to top, rgba(8, 8, 10, 0.8) 0%, rgba(8, 8, 10, 0.6) 40%, rgba(8, 8, 10, 0.25) 72%, rgba(8, 8, 10, 0) 100%); }
+  .hero-copy { position: relative; z-index: 1; }
   .pin::before, .stage::before {
     content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 64%; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
     background: linear-gradient(to top, rgba(8, 8, 10, 0.9) 0%, rgba(8, 8, 10, 0.86) 28%, rgba(8, 8, 10, 0.74) 46%, rgba(8, 8, 10, 0.52) 62%,
       rgba(8, 8, 10, 0.3) 76%, rgba(8, 8, 10, 0.13) 88%, rgba(8, 8, 10, 0.04) 95%, rgba(8, 8, 10, 0) 100%);
+  }
+  /* блок вкуса выше блока упаковки: затемнение выше и плотнее, чтобы подпись «Выберите вкус» и счётчик читались на любой планете */
+  .pin-flavors::before {
+    height: 80%;
+    background: linear-gradient(to top, rgba(8, 8, 10, 0.92) 0%, rgba(8, 8, 10, 0.88) 30%, rgba(8, 8, 10, 0.8) 48%, rgba(8, 8, 10, 0.64) 62%,
+      rgba(8, 8, 10, 0.4) 76%, rgba(8, 8, 10, 0.18) 88%, rgba(8, 8, 10, 0) 100%);
   }
   /* смена текста вкуса идёт каскадом: название, перевод, описание, данные звезды */
   .f-swap { transition: opacity 0.35s ease-out, transform 0.6s var(--ease); }
@@ -291,12 +307,25 @@ main, .footer { position: relative; z-index: 2; }
   .f-name { font-size: clamp(2.4rem, 12.5vw, 4rem); }
   .f-desc { min-height: 0; font-size: 0.97rem; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .f-astro { margin-top: 14px; padding-top: 14px; gap: 10px 24px; }
-  .f-list { flex-wrap: nowrap; overflow-x: auto; gap: 8px; right: 0; bottom: 3svh; padding-right: var(--edge); scrollbar-width: none; }
-  .f-list li { flex: 0 0 auto; }
+  .f-list { bottom: calc(3svh + env(safe-area-inset-bottom)); }
   .sorts, .contacts { grid-template-columns: 1fr; }
   .group dl > div { grid-template-columns: 1fr; gap: 2px; }
 }
 /* телефон в альбомной ориентации и другие низкие окна: всё компактнее, чтобы блоки помещались в экран */
+/* телефон (узкий или низкий экран): описание вкуса сворачивается с кнопкой «Подробнее», список вкусов листается вбок */
+@media (max-width: 760px), (max-height: 560px) {
+  .f-kicker, .f-count { color: var(--ink-2); }
+  .f-more { all: unset; display: none; margin-top: 0.2rem; padding: 0.85rem 0; color: var(--fa); font-size: 0.95rem; font-weight: 600; line-height: 1.2; text-decoration: underline; text-underline-offset: 0.3em; cursor: pointer; }
+  .f-more.show { display: inline-block; }
+  .f-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  .f-panel.open .f-desc { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .f-panel.open .f-astro { display: none; }
+  /* режим чтения: пока описание развёрнуто, сцена за ним приглушается, чтобы текст читался на любой планете */
+  .pin-flavors::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(8, 8, 10, 0.88); opacity: 0; transition: opacity 0.35s var(--ease); }
+  .pin-flavors:has(.f-panel.open)::after { opacity: 1; }
+  .f-list { flex-wrap: nowrap; overflow-x: auto; gap: 8px; right: 0; padding-right: var(--edge); scrollbar-width: none; }
+  .f-list li { flex: 0 0 auto; }
+}
 @media (max-height: 560px) {
   :root { --nav-h: 3.5rem; }
   .hero { padding-top: calc(var(--nav-h) + 0.5rem); padding-bottom: 1.5rem; }
@@ -311,9 +340,10 @@ main, .footer { position: relative; z-index: 2; }
   .f-count { margin-bottom: 0; }
   .f-name { font-size: clamp(2rem, 14vh, 3.4rem); }
   .f-ru { margin: 0.5rem 0; font-size: 1.1rem; }
-  .f-desc { min-height: 0; font-size: 0.95rem; line-height: 1.5; }
+  .f-desc { min-height: 0; font-size: 0.95rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .f-astro { display: none; }
   .f-panel { margin-top: 0; }
+  .pin-flavors { padding-bottom: 4.6rem; }
   .f-list { bottom: 1.5vh; }
   .f-list button { padding: 0.4rem 0.8rem; }
 }
@@ -326,6 +356,18 @@ main, .footer { position: relative; z-index: 2; }
   .f-top { margin-bottom: 0.5rem; }
   .pin-flavors { padding-bottom: 15svh; }
   .panel .h2 { font-size: 1.7rem; }
+}
+/* сенсорные экраны: все кнопки и ссылки не меньше 44 px */
+@media (pointer: coarse) {
+  .btn-sm, .nav-cta { height: 2.75rem; }
+  .f-list button { min-height: 2.75rem; }
+  .nav-menu-contact a { padding: 0.8rem 0; }
+}
+/* узкие телефоны (до 380 px): шапка из логотипа, кнопки и бургера должна помещаться с равными полями */
+@media (max-width: 380px) {
+  .nav { gap: 0.5rem; }
+  .nav .nav-cta { padding: 0 0.65rem; font-size: 0.8rem; }
+  .nav-logo .logo-mark { width: 3.4rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .f-swap, [data-in], [data-reveal], .display .line > span { transition: none; }
