@@ -451,8 +451,8 @@ function frame(now) {
   // небесное тело за банкой: в линейке планета текущего вкуса, до неё планета упаковки, в первом экране только луна; при вылете банки остаётся как есть
   if (t.exit < 0.02) requestStage(inFlavors && t.jar.vis ? flavorIdx : t.hero > 0.5 ? 10 : -1);
 
-  // затемнение под текстом на телефоне проявляется вместе с появлением банки и уходит вместе с ней
-  const scrim = sstep(L.vh * 0.45, L.vh * 0.95, window.scrollY) * (1 - t.exit);
+  // затемнение под текстом на телефоне (закреплённый слой): проявляется вместе с заставкой, чуть мягче в первом экране, уходит с выходом из сцены
+  const scrim = clamp(cur.intro * 1.3) * lerp(0.5, 1, t.hero) * (1 - t.exit);
   if (Math.abs(scrim - lastScrim) > 0.004) { lastScrim = scrim; root.style.setProperty('--scrim', scrim.toFixed(3)); }
 
   if (!sc) return;
