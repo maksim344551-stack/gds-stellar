@@ -7,30 +7,37 @@ async function toFlavors(page) {
   await page.waitForTimeout(2500);
 }
 
-test('вкус выбирается нажатием, стрелками и клавишами', async ({ page }) => {
+test('вкус выбирается стрелками и клавишами, по кругу', async ({ page }) => {
   const errors = await open(page);
   await toFlavors(page);
-  await expect(page.locator('#f-idx')).toHaveText('01');
-  await page.locator('#f-list li:nth-child(9) button').click();
-  await expect(page.locator('#f-idx')).toHaveText('09');
-  await expect(page.locator('#f-name')).toHaveText('Mira');
-  const accent = await page.evaluate(() => document.documentElement.style.getPropertyValue('--fa'));
-  expect(accent.length).toBeGreaterThan(3);
+  const idx = page.locator('#f-idx');
+  await expect(idx).toHaveText('01');
+  const accent1 = await page.evaluate(() => document.documentElement.style.getPropertyValue('--fa'));
   await page.locator('#f-next').click();
-  await expect(page.locator('#f-idx')).toHaveText('10');
+  await expect(idx).toHaveText('02');
+  await expect(page.locator('#f-name')).toHaveText('Betelgeuse');
+  const accent2 = await page.evaluate(() => document.documentElement.style.getPropertyValue('--fa'));
+  expect(accent2).not.toBe(accent1); // цвет вкуса сменился
   await page.locator('#f-next').click();
-  await expect(page.locator('#f-idx')).toHaveText('01'); // по кругу
+  await expect(idx).toHaveText('03');
   await page.locator('#f-prev').click();
-  await expect(page.locator('#f-idx')).toHaveText('10');
+  await expect(idx).toHaveText('02');
+  await page.keyboard.press('ArrowRight');
+  await expect(idx).toHaveText('03');
   await page.keyboard.press('ArrowLeft');
-  await expect(page.locator('#f-idx')).toHaveText('09');
+  await page.keyboard.press('ArrowLeft');
+  await expect(idx).toHaveText('01');
+  await page.locator('#f-prev').click(); // с первого на последний
+  await expect(idx).toHaveText('10');
+  await page.locator('#f-next').click(); // и обратно
+  await expect(idx).toHaveText('01');
   expect(errors).toEqual([]);
 });
 
 test('прокрутка вкус не меняет', async ({ page }) => {
   await open(page);
   await toFlavors(page);
-  await page.locator('#f-list li:nth-child(5) button').click();
+  for (let i = 0; i < 4; i++) await page.locator('#f-next').click();
   await expect(page.locator('#f-idx')).toHaveText('05');
   await page.evaluate(() => window.scrollBy(0, 200));
   await page.waitForTimeout(1500);

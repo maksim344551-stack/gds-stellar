@@ -14,4 +14,6 @@ export default [
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node, ...globals.browser } },
     rules: { 'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrors: 'none' }] },
   },
+  // проверка формы заявки намеренно содержит управляющие символы в тестовых строках
+  { files: ['scripts/test-lead.mjs'], rules: { 'no-control-regex': 'off', 'no-irregular-whitespace': 'off' } },
 ];

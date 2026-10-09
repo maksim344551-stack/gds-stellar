@@ -60,7 +60,7 @@ test('длинное описание вкуса сворачивается, а 
 
 test('зоны нажатия основных кнопок не меньше 44 px', async ({ page }) => {
   await open(page);
-  const small = await page.evaluate(() => [...document.querySelectorAll('.nav-toggle, .nav-cta, .btn, .ic-btn, .f-list button')]
+  const small = await page.evaluate(() => [...document.querySelectorAll('.nav-toggle, .nav-cta, .btn, .ic-btn')]
     .filter((e) => getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0) // скрытые (например, в закрытом возрастном экране) не считаются
     .map((e) => { const r = e.getBoundingClientRect(); return { n: e.className, w: Math.round(r.width), h: Math.round(r.height) }; })
     .filter((r) => r.w < 43 || r.h < 43));

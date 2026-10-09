@@ -307,6 +307,21 @@ main, .footer { position: relative; z-index: 2; }
   .f-name { font-size: clamp(2.4rem, 12.5vw, 4rem); }
   .f-desc { min-height: 0; font-size: 0.97rem; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
   .f-astro { margin-top: 14px; padding-top: 14px; gap: 10px 24px; }
+  .sorts, .contacts { grid-template-columns: 1fr; }
+  .group dl > div { grid-template-columns: 1fr; gap: 2px; }
+}
+/* телефон в альбомной ориентации и другие низкие окна: всё компактнее, чтобы блоки помещались в экран */
+/* телефон (узкий или низкий экран): описание вкуса сворачивается с кнопкой «Подробнее», список вкусов листается вбок */
+@media (max-width: 760px), (max-height: 560px) {
+  .f-kicker, .f-count { color: var(--ink-2); }
+  .f-more { all: unset; display: none; margin-top: 0.2rem; padding: 0.85rem 0; color: var(--fa); font-size: 0.95rem; font-weight: 600; line-height: 1.2; text-decoration: underline; text-underline-offset: 0.3em; cursor: pointer; }
+  .f-more.show { display: inline-block; }
+  .f-more:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+  .f-panel.open .f-desc { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .f-panel.open .f-astro { display: none; }
+  /* режим чтения: пока описание развёрнуто, сцена за ним приглушается, чтобы текст читался на любой планете */
+  .pin-flavors::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: rgba(8, 8, 10, 0.88); opacity: 0; transition: opacity 0.35s var(--ease); }
+  .pin-flavors.reading::after { opacity: 1; }
 }
 @media (max-height: 560px) {
   :root { --nav-h: 3.5rem; }
@@ -334,7 +349,7 @@ main, .footer { position: relative; z-index: 2; }
   .f-ru { margin: 0.6rem 0; }
   .f-desc { -webkit-line-clamp: 3; font-size: 0.92rem; }
   .f-top { margin-bottom: 0.5rem; }
-  .pin-flavors.reading::after { opacity: 1; }
+  .pin-flavors { padding-bottom: 8vh; padding-bottom: 8svh; }
   .panel .h2 { font-size: 1.7rem; }
 }
 /* сенсорные экраны: все кнопки и ссылки не меньше 44 px */

@@ -12,7 +12,7 @@ test('версия без 3D: сайт читается, меню и выбор 
   await expect.poll(() => page.evaluate(() => [...document.querySelectorAll('.fb-l')].some((e) => e.classList.contains('on') && e.style.backgroundImage.includes('url')))).toBe(true);
   await page.evaluate((y) => window.scrollTo(0, y), L.flavTop + L.vh * 0.1);
   await page.waitForTimeout(1500);
-  await page.locator('#f-list li:nth-child(4) button').click();
+  for (let i = 0; i < 3; i++) await page.locator('#f-next').click();
   await expect(page.locator('#f-idx')).toHaveText('04');
   await expect(page.locator('#f-name')).toHaveText('Naos');
   await page.evaluate((y) => window.scrollTo(0, y), L.contactTop);
