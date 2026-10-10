@@ -43,7 +43,7 @@ export function initReveals(reduced) {
 }
 
 // Куда уходит письмо, если прямая отправка недоступна: почтовая программа посетителя открывается с готовым письмом.
-const FALLBACK_MAIL = 'maksim344551@gmail.com';
+const FALLBACK_MAIL = 'Mtechno.tobacco@gmail.com'; // тот же публичный адрес, что в разделе «Контакты»
 const MAIL_MESSAGE_MAX = 600;
 const PHONE = ['8', '800', '300', '4999'].join(String.fromCharCode(160)); // с неразрывными пробелами
 
@@ -107,6 +107,7 @@ export function initForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (button.disabled) return;
+    delete note.dataset.tone;
     const bad = rules.filter((r) => !r.ok(r.input));
     rules.forEach((r) => show(r, bad.includes(r)));
     if (bad.length) {
@@ -144,6 +145,7 @@ export function initForm() {
       return;
     }
     if (REFUSALS[res.error]) {
+      note.dataset.tone = 'error';
       note.textContent = REFUSALS[res.error];
       return;
     }

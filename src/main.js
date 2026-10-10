@@ -439,7 +439,6 @@ function frame(now) {
     section = sec;
     el.navLinks.forEach((a) => (a.dataset.sec === sec ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current')));
   }
-  el.nav.classList.toggle('solid', y > 40);
   el.nav.classList.toggle('on-solid', y > L.blendTop - 90); // ниже сцены шапка со сплошным фоном (стиль .nav.on-solid включён на телефоне и планшете)
   // Шапка без фона, поэтому на тексте она читалась бы плохо: при прокрутке вниз она уезжает вверх, при прокрутке вверх возвращается.
   // На телефоне это работает с первого экрана, на компьютере ниже сцены. navRef запоминает точку разворота, чтобы дрожание пальца не мигало шапкой.
