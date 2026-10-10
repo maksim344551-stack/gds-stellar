@@ -249,12 +249,26 @@ function goSkin(id, instant = false) {
   });
 }
 
-// Небесные тела: каждая смена идёт одним и тем же 2,2-секундным переходом. Если цель изменилась на ходу, текущий
-// переход доигрывается целиком, а следом сразу идёт переход к последней цели (промежуточные пропускаются).
+// Небесные тела: смена идёт переходом от одной планеты к другой. Когда одновременно крутится банка (смена вкуса, вход в линейку или
+// выход из неё), планета стартует в тот же кадр и идёт столько же, сколько остаётся банке: этикетка меняется на середине оборота,
+// а старая планета гаснет и новая появляется вокруг той же середины. Без оборота (первый экран, упаковка) переход прежний, 2,2 с.
+// Если цель изменилась на ходу, текущий переход доигрывается, а следом сразу идёт переход к последней цели (промежуточные пропускаются).
+const STAGE_MS = 2200;
+const FLAVOR_STAGE_MS = 800; // отложенный переход между вкусами (быстрое листание, банка уже закончила оборот)
 let stageTween = null;
 let stageWait = 0;
+function stageDuration(from, to) {
+  if (spinTween) return Math.max(500, spinTween.duration - (performance.now() - spinTween.t0));
+  return from >= 0 && from < 10 && to >= 0 && to < 10 ? FLAVOR_STAGE_MS : STAGE_MS;
+}
 function requestStage(want) {
   const p = cur.planet;
+  // Цель сменилась в начале перехода, пока новая планета почти не видна (появляется между 15 и 75 % перехода): подменяем её сразу, не дожидаясь конца,
+  // чтобы планета не отставала от банки, которая в этом случае тоже доворачивает до нового вкуса. Возврат к прежней планете в самом начале отменяет переход.
+  if (stageTween && !reduced && want !== p.b) {
+    if (want === p.a && p.mix < 0.12) { tweens.delete(stageTween); stageTween = null; p.b = p.a; p.mix = 0; return; }
+    if (p.mix < 0.3 && want !== p.a && (!sc || sc.planets.ready(want))) { p.b = want; return; }
+  }
   if (stageTween || p.b !== p.a || want === p.b) return;
   if (reduced) { p.a = p.b = want; return; }
   // планета выходит в кадр только когда её снимок уже на видеокарте (не дольше 2 с), иначе переход «висит» на пустом месте
@@ -263,7 +277,7 @@ function requestStage(want) {
   p.b = want;
   p.mix = 0;
   stageTween = tween({
-    duration: 2200,
+    duration: stageDuration(p.a, want),
     ease: (x) => x,
     onUpdate: (v) => { p.mix = v; },
     onComplete: () => { p.a = p.b; p.mix = 0; stageTween = null; },
@@ -289,6 +303,10 @@ function setFlavor(i) {
   flavorIdx = i;
   try { sessionStorage.setItem('gds-flavor', String(i)); } catch { /* приватный режим */ }
   showFlavor(i);
+  // снимок новой планеты и соседних грузим сразу: переход планеты должен стартовать вместе с оборотом банки, а не ждать загрузки
+  sc?.planets.get(i);
+  sc?.planets.get((i + 1) % FLAVORS.length);
+  sc?.planets.get((i - 1 + FLAVORS.length) % FLAVORS.length);
   if (flavorsActive) goSkin(FLAVORS[i].id);
   keepPlanets();
 }
