@@ -7,27 +7,16 @@
   <meta name="theme-color" content="#08080a" />
   <title>Страница не найдена: GDS «Джедес»</title>
   <!-- Хостинг (statichost.eu) отдаёт этот файл на любой несуществующий адрес, в том числе вложенный, поэтому пути корневые (/), а не относительные.
-       Стили встроены: страница не проходит через Vite, и хэшированные файлы сайта отсюда не подключить. Цвета те же, что в src/style.css. -->
+       Стили встроены: страница не проходит через Vite, и хэшированные файлы сайта отсюда не подключить. Токены, шрифт и логотип общие с главной: /base.css. -->
   <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="stylesheet" href="/base.css" />
   <style>
-    :root { color-scheme: dark; }
-    html { background: #08080a; }
-    body { margin: 0; min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; background: #08080a; color: #c6c1b3; font: 16px/1.65 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-    main { width: 100%; max-width: 40rem; box-sizing: border-box; padding: 4rem 1.25rem; }
-    .code { margin: 0 0 1rem; color: #98927f; font-size: 0.95rem; font-variant-numeric: tabular-nums; }
-    h1 { margin: 0 0 1rem; color: #ebe6da; font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.15; text-wrap: balance; }
-    p { margin: 0 0 1.75rem; text-wrap: pretty; }
-    a { color: #cdac62; text-underline-offset: 3px; }
-    a:hover { color: #dcc17f; }
-    .btn { display: inline-flex; align-items: center; height: 3rem; padding: 0 1.6rem; border-radius: 2px; background: #cdac62; color: #17120a; font-weight: 600; text-decoration: none; transition: background-color 0.25s, transform 0.15s; }
-    .btn:hover { background: #dcc17f; color: #17120a; }
-    .btn:active { transform: translateY(1px); }
-    :focus-visible { outline: 2px solid #cdac62; outline-offset: 3px; }
-    ::selection { background: #cdac62; color: #17120a; }
+    body { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; }
   </style>
 </head>
 <body>
-<main>
+<main class="page">
+  <a class="logo" href="/" aria-label="GDS, на главную"><span class="logo-mark" role="img" aria-label="GDS"></span></a>
   <p class="code">Ошибка 404</p>
   <h1>Страница не найдена</h1>
   <p>Такого адреса на сайте нет: возможно, ссылка устарела или в ней опечатка. На главной странице есть линейка вкусов, условия для партнёров и контакты.</p>

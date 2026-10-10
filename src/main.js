@@ -179,11 +179,17 @@ el.fMore.addEventListener('click', () => {
 });
 addEventListener('resize', updateMore);
 
+// Текст вкуса меняется вместе с банкой: этикетка и планета меняются на середине оборота (около 550 мс), поэтому старый текст держится до ~250 мс,
+// уходит, и новый появляется на 560 мс. Раньше текст менялся на 240 мс, и название нового вкуса стояло рядом с этикеткой старого.
+const TEXT_OUT_MS = 250;
+const TEXT_SWAP_MS = 560;
+let outTimer = 0;
 function showFlavor(i) {
   const f = FLAVORS[i];
-  swapEls.forEach((e) => e.classList.add('out'));
   collapseDesc();
   clearTimeout(swapTimer);
+  clearTimeout(outTimer);
+  outTimer = setTimeout(() => swapEls.forEach((e) => e.classList.add('out')), reduced ? 0 : TEXT_OUT_MS);
   swapTimer = setTimeout(() => {
     el.fIdx.textContent = pad(i + 1);
     el.fName.textContent = f.star;
@@ -204,7 +210,7 @@ function showFlavor(i) {
     });
     swapEls.forEach((e) => e.classList.remove('out'));
     updateMore();
-  }, reduced ? 0 : 240);
+  }, reduced ? 0 : TEXT_SWAP_MS);
 }
 
 function setAccent(skin) {

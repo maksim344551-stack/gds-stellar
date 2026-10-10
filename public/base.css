@@ -1,0 +1,43 @@
+/* Общие стили служебных страниц (404, политика конфиденциальности): те же токены, шрифт и логотип, что у главной (src/style.css).
+   Эти страницы не проходят через Vite, поэтому файл статический, а пути к шрифтам и логотипу относительные к этому файлу.
+   Значения токенов повторяют :root главной страницы: при смене палитры менять в обоих местах. */
+@font-face {
+  font-family: 'Roboto Flex Variable'; font-style: normal; font-display: swap; font-weight: 100 1000; font-stretch: 25% 151%;
+  src: url('./fonts/roboto-flex-cyrillic-wdth-normal.woff2') format('woff2-variations');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+@font-face {
+  font-family: 'Roboto Flex Variable'; font-style: normal; font-display: swap; font-weight: 100 1000; font-stretch: 25% 151%;
+  src: url('./fonts/roboto-flex-latin-wdth-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+:root {
+  color-scheme: dark;
+  --bg: #08080a; --ink: #ebe6da; --ink-2: #c6c1b3; --muted: #98927f;
+  --gold: #cdac62; --gold-hi: #dcc17f; --on-gold: #17120a; --r: 2px;
+  --sans: 'Roboto Flex Variable', system-ui, 'Segoe UI', Arial, sans-serif;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink-2); font: 400 1rem/1.65 var(--sans); font-kerning: normal; -webkit-font-smoothing: antialiased; }
+a { color: var(--gold); text-underline-offset: 3px; }
+a:hover { color: var(--gold-hi); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+::selection { background: var(--gold); color: var(--on-gold); }
+h1 { margin: 0 0 1rem; color: var(--ink); font-weight: 820; font-stretch: 134%; font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.1; letter-spacing: -0.015em; text-wrap: balance; hyphens: none; }
+p { margin: 0 0 1.75rem; text-wrap: pretty; }
+
+.logo-mark {
+  display: block; width: 4rem; aspect-ratio: 2946 / 1618; background: var(--gold);
+  -webkit-mask: url('./logo-sm.png') center / contain no-repeat; mask: url('./logo-sm.png') center / contain no-repeat;
+}
+.logo { display: inline-block; margin-bottom: 2.5rem; }
+.btn {
+  display: inline-flex; align-items: center; height: 3.1rem; padding: 0 1.7rem; border-radius: var(--r); background: var(--gold); color: var(--on-gold);
+  font-size: 0.9375rem; font-weight: 600; text-decoration: none; transition: background-color 0.25s var(--ease), transform 0.15s var(--ease);
+}
+.btn:hover { background: var(--gold-hi); color: var(--on-gold); }
+.btn:active { transform: translateY(1px); }
+.page { width: 100%; max-width: 40rem; padding: 4rem 1.25rem 5rem; }
+.code { margin: 0 0 1rem; color: var(--muted); font-size: 0.875rem; font-variant-numeric: tabular-nums; }
