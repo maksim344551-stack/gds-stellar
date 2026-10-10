@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { FLAVORS } from './data.js';
 import { createJar } from './jar.js';
 import moonUrl from './assets/moon.jpg';
+import moonLowUrl from './assets/moon-lo.jpg';
 import { makeMoon, makePlanets, makeNebula, makeStar, makeStars } from './cosmos.js';
 
-// p00..p09 планеты вкусов, p10 планета упаковки (порядок по имени файла)
-const PLANET_URLS = Object.entries(import.meta.glob('./assets/planets/p*.jpg', { eager: true, query: '?url', import: 'default' }))
-  .sort(([a], [b]) => a.localeCompare(b))
-  .map(([, url]) => url);
+// p00..p09 планеты вкусов, p10 планета упаковки (порядок по имени файла). Облегчённый комплект (planets-lo, тот же порядок и пропорции) для телефона и планшета.
+const byName = (glob) => Object.entries(glob).sort(([a], [b]) => a.localeCompare(b)).map(([, url]) => url);
+const PLANET_URLS = byName(import.meta.glob('./assets/planets/p*.jpg', { eager: true, query: '?url', import: 'default' }));
+const PLANET_URLS_LOW = byName(import.meta.glob('./assets/planets-lo/p*.jpg', { eager: true, query: '?url', import: 'default' }));
 
 /** Студийное освещение: тёмная комната с софтбоксами. Хром получает чёткие, «предметные» блики. */
 function studioEnvironment(renderer) {
@@ -34,7 +35,7 @@ function studioEnvironment(renderer) {
   return tex;
 }
 
-export async function createScene(canvas, { lowPower, light }) {
+export async function createScene(canvas, { lowPower, light, lowAssets = false }) {
   // Рисуем прямо на экран: встроенное сглаживание (MSAA) и родное разрешение (до 2x), без промежуточных буферов.
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   const maxPR = lowPower ? 1.5 : 2;
@@ -76,9 +77,9 @@ export async function createScene(canvas, { lowPower, light }) {
   rim.position.set(4, 1, -3);
   rigCam.add(key, rim);
 
-  const moon = makeMoon(moonUrl, renderer.capabilities.getMaxAnisotropy());
+  const moon = makeMoon(lowAssets ? moonLowUrl : moonUrl, renderer.capabilities.getMaxAnisotropy());
   rigCam.add(moon.group);
-  const planets = makePlanets(PLANET_URLS, renderer);
+  const planets = makePlanets(lowAssets ? PLANET_URLS_LOW : PLANET_URLS, renderer);
   rigCam.add(planets.cur.mesh, planets.next.mesh);
   const star = makeStar();
   rigCam.add(star.group);

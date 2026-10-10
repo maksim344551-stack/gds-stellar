@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SKINS } from './data.js';
 import LOGO_URL from './assets/logo-lg.png';
+import LOGO_LOW_URL from './assets/logo-md.png'; // 1400 px: ровно ширина холста, в который логотип рисуется (foilLogo), поэтому резкость та же
 
 // Один шрифт сайта. DISPLAY печатается в расширенном начертании (как логотип), SANS в обычном.
 const SANS = '"Roboto Flex Variable", system-ui, sans-serif';
@@ -22,13 +23,13 @@ const cache = new Map(); // id -> { label, mr, lid, lidMr }
 const pinned = new Set(); // комплекты, которые сейчас на банке: их нельзя выселять
 export const pinSkin = (id) => { pinned.clear(); pinned.add(id); };
 
-export async function loadSkinAssets(renderer) {
+export async function loadSkinAssets(renderer, { low = false } = {}) {
   maxAniso = Math.min(16, renderer.capabilities.getMaxAnisotropy());
   logo = await new Promise((res, rej) => {
     const im = new Image();
     im.onload = () => res(im);
     im.onerror = rej;
-    im.src = LOGO_URL;
+    im.src = low ? LOGO_LOW_URL : LOGO_URL;
   });
   try {
     await Promise.all([

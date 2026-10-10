@@ -16,7 +16,8 @@
   --sans: 'Roboto Flex Variable', system-ui, 'Segoe UI', Arial, sans-serif;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --gut: clamp(20px, 4.4vw, 64px);
-  --edge: max(var(--gut), calc((100vw - 1560px) / 2 + var(--gut))); /* общий левый край: шапка, сцены и блоки выровнены */
+  /* общий левый край: шапка, сцены и блоки выровнены; не заходит под вырез экрана (телефон в альбомной ориентации) */
+  --edge: max(var(--gut), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px), calc((100vw - 1560px) / 2 + var(--gut)));
   --nav-h: 4.25rem;
   --r: 2px;
 }
@@ -57,7 +58,7 @@ main, .footer { position: relative; z-index: 2; }
 .ld-logo { width: 100%; }
 .ld-bar { width: 100%; height: 1px; background: var(--line); }
 .ld-bar i { display: block; height: 100%; background: var(--gold); transform: scaleX(0); transform-origin: left; }
-.ld-caption { position: absolute; left: var(--gut); right: var(--gut); bottom: 28px; display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
+.ld-caption { position: absolute; left: max(var(--gut), env(safe-area-inset-left, 0px)); right: max(var(--gut), env(safe-area-inset-right, 0px)); bottom: calc(28px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--muted); }
 .ld-caption b { font-weight: 500; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 /* подписи поверх сцены: один слой, без размытия */
@@ -84,6 +85,11 @@ main, .footer { position: relative; z-index: 2; }
 .nav { position: fixed; inset: 0 0 auto 0; z-index: 60; height: var(--nav-h); display: flex; align-items: center; gap: 2rem; padding: 0 var(--edge); border-bottom: 1px solid transparent; transition: background-color 0.3s, border-color 0.3s; }
 .nav.solid { background: transparent; }
 .nav { transition: background-color 0.3s, border-color 0.3s, transform 0.4s var(--ease); }
+/* Ниже сцены лежат сплошные блоки с текстом: вернувшаяся при прокрутке вверх шапка получает сплошной фон, иначе логотип и кнопка ложатся на текст.
+   Класс ставит main.js (ниже блока «Вкусы»); над сценой шапка остаётся прозрачной. Только телефон и планшет: на компьютере вид не меняется. */
+@media (max-width: 900px), (hover: none) {
+  .nav.on-solid { background: var(--bg); border-bottom-color: var(--line); }
+}
 .nav.away { transform: translateY(-100%); }
 .nav-logo .logo-mark { width: 4rem; }
 .nav-toggle { display: none; }
@@ -219,9 +225,14 @@ main, .footer { position: relative; z-index: 2; }
 .footer .warn { max-width: none; font-size: 1rem; font-weight: 600; color: var(--ink); }
 
 /* возрастной экран */
-.gate { position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; padding: 20px; background: rgba(8, 8, 10, 0.94); transition: opacity 0.5s var(--ease), visibility 0.5s; }
+/* Экран листается, если карточка выше окна (альбомный телефон с панелями браузера, маленький экран, крупный масштаб): пока страница под ним заблокирована,
+   иначе кнопки «Да» и «Нет» оказывались за краем и до них было не добраться. Карточка по центру, когда помещается. */
+.gate {
+  position: fixed; inset: 0; z-index: 200; display: flex; overflow-y: auto; overscroll-behavior: contain; background: rgba(8, 8, 10, 0.94); transition: opacity 0.5s var(--ease), visibility 0.5s;
+  padding: max(20px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(20px, env(safe-area-inset-left, 0px));
+}
 .gate.hide { opacity: 0; visibility: hidden; pointer-events: none; }
-.gate-card { width: min(30rem, 100%); padding: 2.75rem 2.5rem; border: 1px solid var(--line-2); border-radius: var(--r); background: #0c0c0f; }
+.gate-card { width: min(30rem, 100%); margin: auto; padding: 2.75rem 2.5rem; border: 1px solid var(--line-2); border-radius: var(--r); background: #0c0c0f; }
 .gate-logo { width: 6.5rem; margin-bottom: 28px; }
 .gate-card h2 { margin-bottom: 12px; font-weight: 700; font-stretch: 116%; font-size: 1.9rem; line-height: 1.15; letter-spacing: -0.01em; }
 .gate-card p { margin-bottom: 28px; font-size: 1.05rem; color: var(--ink-2); }
@@ -357,3 +368,130 @@ main, .footer { position: relative; z-index: 2; }
 /* ловушка для ботов в форме: скрыта от людей и программ чтения с экрана */
 .hp { position: absolute; left: -9999px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 .check a, .footer a { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ══ Мобильная версия: правки по аудиту (10.10.2026) ═══════════════════════════════════════════════════════════
+   Раскладка сцены зависит от формы окна, как в main.js: «узкое» окно (ширина / высота < 0.95) ставит банку по центру, «низкое» (до 560 px
+   по высоте, шире, чем выше) уводит банку вправо. Текст должен вести себя так же, иначе он ложится на банку. Телефонные размеры шрифтов и
+   колонки по-прежнему включаются по ширине 760 px: на планшете и компьютере они не меняются. */
+
+/* Планшет в портрете (761 px и шире, окно выше, чем шире): текст внизу и затемнение, как на телефоне. */
+@media (min-width: 761px) and (max-aspect-ratio: 19/20) {
+  .hero, .pin, .stage { align-items: flex-end; }
+  .hero, .stage, .pin-flavors { padding-bottom: 7svh; }
+  .pin-flavors { flex-direction: column; justify-content: flex-end; align-items: flex-start; }
+  .hero-copy { position: relative; z-index: 1; max-width: 40rem; }
+  .panel { width: min(100%, 38rem); }
+  .f-panel { width: min(100%, 42rem); margin-top: 0; }
+  .f-kicker, .f-count { color: var(--ink-2); } /* подписи над названием вкуса лежат на светлой планете: светлее, как на телефоне */
+  .scrim {
+    display: block; position: fixed; left: 0; right: 0; bottom: 0; height: 75svh; z-index: 1; pointer-events: none; opacity: var(--scrim, 0);
+    background: linear-gradient(to top, rgba(8, 8, 10, 0.9) 0%, rgba(8, 8, 10, 0.86) 24%, rgba(8, 8, 10, 0.77) 40%, rgba(8, 8, 10, 0.63) 54%,
+      rgba(8, 8, 10, 0.46) 66%, rgba(8, 8, 10, 0.29) 77%, rgba(8, 8, 10, 0.15) 86%, rgba(8, 8, 10, 0.06) 93%, rgba(8, 8, 10, 0) 100%);
+  }
+}
+
+/* Телефон в альбомной ориентации: текст в левой половине, банка (main.js, land) правее и меньше. */
+@media (max-height: 560px) and (min-aspect-ratio: 19/20) {
+  .hero-copy { max-width: 50vw; }
+  .panel { width: min(33rem, 100%, 50vw); }
+  .f-panel { width: min(50vw, 48rem); }
+}
+@media (max-width: 760px) and (max-height: 560px) and (min-aspect-ratio: 19/20) {
+  .f-panel { align-self: flex-start; }
+}
+/* меню в альбомной ориентации: все пять пунктов и контакты помещаются без прокрутки меню */
+@media (max-width: 900px) and (max-height: 560px) {
+  .nav-links > a { padding: 0.5rem 0; font-size: 1.3rem; line-height: 1.3; }
+  .nav-menu-contact { grid-template-columns: auto auto; justify-content: start; column-gap: 2rem; padding-top: 0.75rem; }
+  .nav-menu-contact a { padding: 0.55rem 0; }
+}
+
+/* Возрастной экран на низком или узком окне: карточка компактнее (прокрутка включена выше, в .gate). */
+@media (max-height: 560px), (max-width: 380px) {
+  .gate-card { padding: 1.5rem; }
+  .gate-logo { width: 4.5rem; margin-bottom: 1rem; }
+  .gate-card h2 { font-size: 1.5rem; }
+  .gate-card p { margin-bottom: 1.25rem; font-size: 1rem; }
+}
+
+/* Масштаб на телефоне: меньше пустоты между блоками (было 96-149 px сверху и снизу), основной текст 16 px, подписи 15 px, ничего мельче 14 px. */
+@media (max-width: 760px) and (min-height: 561px) {
+  .block { padding: clamp(3.5rem, 9svh, 5rem) 0; }
+  .contact { padding-bottom: clamp(3.5rem, 9svh, 5rem); }
+  .about { margin-bottom: 3rem; }
+  .h2 { margin-bottom: 0.9rem; font-size: 1.75rem; }
+  .h3 { margin-bottom: 0.75rem; font-size: 1.25rem; }
+  .lead { margin-bottom: 1rem; font-size: 1.0625rem; line-height: 1.55; }
+  .sorts { gap: 1.5rem; margin: 2rem 0 1.5rem; }
+  .sort { padding-top: 0.9rem; }
+  .sort h3 { margin-bottom: 0.3rem; font-size: 1.2rem; }
+  .note { margin-bottom: 3rem; }
+  .plain-list li { margin-bottom: 0.6rem; }
+  .split { gap: 2.5rem; }
+  .groups { gap: 2.5rem; }
+  .group { padding-top: 1rem; }
+  .group .h3 { margin-bottom: 1rem; }
+  .group dl { gap: 0.9rem; }
+  .contacts { gap: 1.1rem; margin: 2rem 0 2.5rem; padding-top: 1.25rem; }
+  .form { gap: 1.4rem; }
+  .field input:not([type='checkbox']) { padding: 0.55rem 0; }
+  .specs dd, .f-desc { font-size: 1rem; }
+  .field label, .contacts dt, .check, .footer p { font-size: 0.9375rem; }
+  .footer { padding-top: 2.5rem; }
+}
+/* низкие окна (альбомный телефон): только вертикальные промежутки информационных блоков; сцены и их размеры не трогаем */
+@media (max-height: 560px) {
+  .block { padding: clamp(3.5rem, 9svh, 5rem) 0; }
+  .contact { padding-bottom: clamp(3.5rem, 9svh, 5rem); }
+  .about { margin-bottom: 3rem; }
+  .sorts { margin: 2rem 0 1.5rem; }
+  .note { margin-bottom: 3rem; }
+  .groups { gap: 2.5rem; }
+  .contacts { margin: 2rem 0 2.5rem; }
+  .form { gap: 1.4rem; }
+}
+@media (max-width: 380px) {
+  .nav .nav-cta { font-size: 0.875rem; } /* было 12,8 px */
+}
+
+/* Крупный текст и масштаб страницы 150-200 %: в em, поэтому порог растёт вместе с размером шрифта в настройках браузера.
+   Кнопка из шапки уходит в меню (бургер всегда у края), сетки не держат ширину по самому длинному слову, поля ввода сжимаются. */
+@media (max-width: 19.5em) {
+  .nav .nav-cta { display: none; }
+  .nav-toggle { margin-left: auto; }
+  .btn, .cta .btn { height: auto; min-height: 2.75rem; padding: 0.7rem 1rem; line-height: 1.2; white-space: normal; text-align: center; }
+  .display { font-size: 14vw; }
+  .f-name { font-size: 12vw; }
+  .gate-card { padding: 1.25rem 1rem; }
+  .gate-card h2 { font-size: 1.3rem; }
+  .split, .groups, .group dl > div, .nav-menu-contact, .contacts, .form { grid-template-columns: minmax(0, 1fr); }
+  .h2, .h3, .lead, .group dt, .group dd, .contacts dd, .nav-menu-contact a, .footer p, .field label, .check { overflow-wrap: break-word; hyphens: auto; }
+  .form > *, .field, .field input, .field textarea { min-width: 0; }
+  .field { grid-template-columns: minmax(0, 1fr); }
+  .check { grid-template-columns: 1.4rem minmax(0, 1fr); }
+  .f-top { flex-wrap: wrap; gap: 0.25rem 1rem; } /* подпись и стрелки вкусов в два ряда, а не шире экрана */
+}
+
+/* Запасной кадр без WebGL (старый телефон, режим экономии): снимок банки из сцены вместо чёрного верха страницы. main.js ставит html.no-webgl.
+   Картинка за текстом первого экрана: на телефоне сверху по центру (высота берёт остаток над текстом), на широком окне справа. */
+html.no-webgl .hero { position: relative; }
+html.no-webgl .hero::before {
+  content: ''; position: absolute; z-index: -1; pointer-events: none;
+  left: var(--edge); right: var(--edge); top: calc(var(--nav-h) + 1rem);
+  height: clamp(6rem, calc(100svh - 29rem), min(44svh, 24rem));
+  background: url('./assets/poster-jar.jpg') center / contain no-repeat;
+}
+@media (min-aspect-ratio: 19/20) {
+  html.no-webgl .hero::before { left: 50%; top: 0; bottom: 0; height: auto; background-size: auto min(62svh, 36rem); }
+}
+
+/* Касания: цвет наведения не «залипает» на стрелках, кнопках и ссылках после нажатия пальцем. */
+@media (hover: none) {
+  .ic-btn:hover { color: var(--ink); }
+  .btn-solid:hover { background: var(--gold); }
+  .btn-line:hover { border-color: var(--line-2); color: var(--ink); }
+  .contacts a:hover { color: inherit; border-color: var(--line-2); }
+}
+/* зона нажатия ссылок на политику (в согласии и в подвале): внешне ссылка не меняется, промахнуться пальцем труднее */
+.check a, .footer a { position: relative; }
+.check a::after, .footer a::after { content: ''; position: absolute; inset: -0.5rem -0.2rem; }

@@ -192,10 +192,10 @@
         <noscript><p class="form-note">Форма заявки работает при включённом JavaScript. Позвоните 8 800 300 4999 или напишите на Mtechno.tobacco@gmail.com.</p></noscript>
         <form class="form" id="lead-form" method="post" data-reveal novalidate hidden>
           <h3 class="h3 full">Заявка на сотрудничество</h3>
-          <div class="field"><label for="f-name-in">Имя</label><input id="f-name-in" name="name" autocomplete="name" maxlength="120" required aria-describedby="e-name" /><p class="err" id="e-name" role="alert"></p></div>
-          <div class="field"><label for="f-company">Компания</label><input id="f-company" name="company" autocomplete="organization" maxlength="120" /></div>
-          <div class="field"><label for="f-city">Город</label><input id="f-city" name="city" autocomplete="address-level2" maxlength="80" /></div>
-          <div class="field"><label for="f-contact">Телефон или e-mail</label><input id="f-contact" name="contact" autocomplete="off" maxlength="120" required aria-describedby="e-contact" /><p class="err" id="e-contact" role="alert"></p></div>
+          <div class="field"><label for="f-name-in">Имя</label><input id="f-name-in" name="name" autocomplete="name" autocapitalize="words" enterkeyhint="next" maxlength="120" required aria-describedby="e-name" /><p class="err" id="e-name" role="alert"></p></div>
+          <div class="field"><label for="f-company">Компания</label><input id="f-company" name="company" autocomplete="organization" enterkeyhint="next" maxlength="120" /></div>
+          <div class="field"><label for="f-city">Город</label><input id="f-city" name="city" autocomplete="address-level2" autocapitalize="words" enterkeyhint="next" maxlength="80" /></div>
+          <div class="field"><label for="f-contact">Телефон или e-mail</label><input id="f-contact" name="contact" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" maxlength="120" required aria-describedby="e-contact" /><p class="err" id="e-contact" role="alert"></p></div>
           <div class="field full"><label for="f-msg">Сообщение</label><textarea id="f-msg" name="message" rows="3" maxlength="2000"></textarea></div>
           <div class="hp" aria-hidden="true"><label for="f-extra">Оставьте это поле пустым</label><input id="f-extra" name="hp" type="text" tabindex="-1" autocomplete="off" /></div>
           <div class="field full">

@@ -38,6 +38,8 @@ const root = document.documentElement;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || params.has('reduced');
 const coarse = matchMedia('(pointer: coarse)').matches;
 const lowPower = coarse || (navigator.hardwareConcurrency || 8) <= 4 || params.has('low');
+// Телефон и планшет получают облегчённые картинки (планеты, луна, логотип банки): меньше трафика и видеопамяти. ?hires в адресе возвращает полные.
+const lowAssets = (coarse || params.has('low')) && !params.has('hires');
 const forcedLight = params.get('q') === '0'; // ?q=0 упрощённая сцена, ?q=2 полная без автоподбора
 const forcedFull = params.get('q') === '2';
 const DT_MAX = Number(params.get('dtmax')) || 0.05; // верхняя граница шага времени (для отладки на медленных машинах)
@@ -147,7 +149,10 @@ const pointer = { x: 0, y: 0, tx: 0, ty: 0 };
 let lastScrim = -1;
 let navRef = 0;
 let skinId = 'brand';
-let flavorIdx = 0;
+// Вкус переживает перезагрузку вкладки (например, после потери контекста WebGL): иначе выбор сбрасывался бы на первый вкус.
+let flavorIdx = (() => {
+  try { const n = Number(sessionStorage.getItem('gds-flavor')); return Number.isInteger(n) && n >= 0 && n < FLAVORS.length ? n : 0; } catch { return 0; }
+})();
 let swapTimer = 0;
 let accentReset = false;
 let spinTween = null;
@@ -265,22 +270,42 @@ function requestStage(want) {
   });
 }
 
+// Облегчённый режим (телефон): в видеопамяти держим планету упаковки, текущий вкус, по два соседних с каждой стороны и те планеты, что сейчас на экране
+// (идёт переход); остальные освобождаем. Вкус листается по одному, поэтому соседние всегда догружены заранее.
+function keepPlanets() {
+  if (!sc || !lowAssets) return;
+  const n = FLAVORS.length;
+  const keep = new Set([10, cur.planet.a, cur.planet.b]);
+  for (let d = -2; d <= 2; d++) keep.add((flavorIdx + d + n) % n);
+  keep.delete(-1);
+  keep.forEach((i) => sc.planets.get(i));
+  sc.planets.trim(keep);
+}
+
 // Вкус выбирает пользователь (стрелки, клавиши, свайп); прокрутка вкус не меняет.
 let flavorsActive = false;
 function setFlavor(i) {
   if (i === flavorIdx) return;
   flavorIdx = i;
+  try { sessionStorage.setItem('gds-flavor', String(i)); } catch { /* приватный режим */ }
   showFlavor(i);
   if (flavorsActive) goSkin(FLAVORS[i].id);
+  keepPlanets();
 }
-showFlavor(0);
+showFlavor(flavorIdx);
 
 // меню на телефоне
 const navToggle = $('#nav-toggle');
 const setMenu = (open) => {
+  const was = el.nav.classList.contains('open');
   el.nav.classList.toggle('open', open);
   root.classList.toggle('menu-open', open); // страница под меню не прокручивается
   navToggle.setAttribute('aria-expanded', String(open));
+  if (was === open) return; // Esc и resize вызывают setMenu(false) и при закрытом меню: тогда блокировку страницы (возрастной экран) не трогаем
+  // пока меню открыто, страница под ним недоступна клавише Tab и экранному диктору; фокус уходит в меню и возвращается на кнопку
+  [$('#main'), $('.footer'), $('.skip')].forEach((n) => { if (n) n.inert = open; });
+  if (open) $('#nav-links a')?.focus({ preventScroll: true });
+  else if (el.nav.contains(document.activeElement)) navToggle.focus({ preventScroll: true });
 };
 navToggle.addEventListener('click', () => setMenu(!el.nav.classList.contains('open')));
 addEventListener('keydown', (e) => { if (e.key === 'Escape') setMenu(false); });
@@ -297,7 +322,8 @@ const stepFlavor = (d) => setFlavor((flavorIdx + d + FLAVORS.length) % FLAVORS.l
     const t = e.changedTouches[0];
     const dx = t.clientX - sx;
     const dy = t.clientY - sy;
-    if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * 1.6) stepFlavor(dx < 0 ? 1 : -1);
+    // в альбомной ориентации порог строже: наклонный жест при прокрутке не должен листать вкус
+    if (Math.abs(dx) > 56 && Math.abs(dx) > Math.abs(dy) * (innerHeight <= 560 ? 2 : 1.6)) stepFlavor(dx < 0 ? 1 : -1);
   }, { passive: true });
 }
 el.fPrev.addEventListener('click', () => stepFlavor(-1));
@@ -318,6 +344,8 @@ $$('[data-go]').forEach((a) => a.addEventListener('click', (e) => {
   else if (id === 'flavors') y = L.flavTop + L.vh * 0.1;
   else if (id !== 'hero') y = (el[id] || $(`#${id}`)).getBoundingClientRect().top + window.scrollY;
   scrollToY(y);
+  // адрес раздела в строке браузера: ссылкой можно поделиться; запись в историю не добавляем, «Назад» уводит с сайта как раньше
+  try { history.replaceState(null, '', id === 'hero' ? location.pathname + location.search : `#${id}`); } catch { /* file:// и т.п. */ }
 }));
 
 // ── цели анимации по скроллу ───────────────────────────────────────
@@ -331,7 +359,11 @@ function targets(y) {
   const exit = sstep(flavEnd, flavEnd + vh * 0.95, y);
   const iv = easeOut(cur.intro);
   // банка стоит справа от оси взгляда: чтобы лицевая сторона смотрела точно на покупателя, её доворачивают на угол линии взгляда
-  const face = narrow ? 0 : -Math.atan2(1.9, 6.6);
+  // Низкое окно шире, чем высокое (телефон в альбомной ориентации): банка меньше и правее, текст (CSS: max-height 560 и min-aspect-ratio 19/20)
+  // остаётся в левой половине. Положение считается от ширины кадра на глубине банки, поэтому не зависит от соотношения сторон.
+  const land = !narrow && innerHeight <= 560;
+  const jx = land ? 2.184 * aspect * 0.62 : lerp(1.8, 1.9, hero);
+  const face = narrow ? 0 : -Math.atan2(land ? jx : 1.9, 6.6);
 
   const t = { flavT, exit, hero, narrow };
 
@@ -352,10 +384,10 @@ function targets(y) {
   const sway = Math.sin(cur.time * 0.45) * 0.5 + pointer.x * 0.35;
   const swayAmp = lerp(lerp(0.45, 0.25, hero), 0.1, flavT);
   t.jar = {
-    x: narrow ? 0 : lerp(1.8, 1.9, hero),
+    x: narrow ? 0 : jx,
     y: (narrow ? lerp(1.4, 1.25, hero) : 0) + exit * 8 - (1 - iv) * 1.2,
     // на невысоких телефонах банка меньше, чтобы подпись блока не заезжала на неё
-    s: (narrow ? 0.82 * lerp(0.82, 1, clamp((innerHeight - 568) / 276)) : 1.26) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
+    s: (narrow ? 0.82 * lerp(0.82, 1, clamp((innerHeight - 568) / 276)) : land ? 0.98 : 1.26) * lerp(0.5, 1, iv) * (1 + exit * 0.9),
     // лицевая сторона (вкус, логотип) всегда к покупателю, банка лишь слегка покачивается
     ry: face + sway * swayAmp + exit * Math.PI * 1.2,
     rx: lerp(0.36, 0.26, flavT) - pointer.y * 0.06,
@@ -390,6 +422,7 @@ function frame(now) {
     el.navLinks.forEach((a) => (a.dataset.sec === sec ? a.setAttribute('aria-current', 'true') : a.removeAttribute('aria-current')));
   }
   el.nav.classList.toggle('solid', y > 40);
+  el.nav.classList.toggle('on-solid', y > L.blendTop - 90); // ниже сцены шапка со сплошным фоном (стиль .nav.on-solid включён на телефоне и планшете)
   // Шапка без фона, поэтому на тексте она читалась бы плохо: при прокрутке вниз она уезжает вверх, при прокрутке вверх возвращается.
   // На телефоне это работает с первого экрана, на компьютере ниже сцены. navRef запоминает точку разворота, чтобы дрожание пальца не мигало шапкой.
   const navFrom = innerWidth <= 900 ? 80 : L.blendTop - L.vh * 0.5;
@@ -534,16 +567,16 @@ async function boot() {
   await nextFrame();
 
   try {
-    sc = await createScene($('#gl'), { lowPower, light: forcedLight });
+    sc = await createScene($('#gl'), { lowPower, light: forcedLight, lowAssets });
     progress(0.4);
     await nextFrame();
-    await loadSkinAssets(sc.renderer);
+    await loadSkinAssets(sc.renderer, { low: lowAssets });
     sc.jar.setSkin('brand');
     progress(0.5);
     // всё, что понадобится при первом скролле, готовим под заставкой
     await warmSkins(['brand'], sc.renderer, { immediate: true });
     progress(0.65);
-    await warmSkins([FLAVORS[0].id, ...neighbours(0)], sc.renderer, { immediate: true });
+    await warmSkins([FLAVORS[flavorIdx].id, ...neighbours(flavorIdx)], sc.renderer, { immediate: true });
     progress(0.88);
     await sc.compile();
     progress(0.94);
@@ -554,8 +587,12 @@ async function boot() {
   }
 
   // фото планет подгружаются по очереди в простое: к линейке вкусов они уже на видеокарте
+  // (на телефоне только планета упаковки и соседние с текущим вкусом, остальные подгружает keepPlanets при смене вкуса)
   if (sc) {
-    const queue = [10, ...FLAVORS.map((_, i) => i)]; // сначала планета упаковки: она нужна раньше всех
+    const n = FLAVORS.length;
+    const queue = lowAssets
+      ? [10, flavorIdx, ...[1, -1, 2, -2].map((d) => (flavorIdx + d + n) % n)]
+      : [10, ...FLAVORS.map((_, i) => i)]; // сначала планета упаковки: она нужна раньше всех
     const next = () => { if (queue.length) { sc.planets.get(queue.shift()); setTimeout(next, 700); } };
     setTimeout(next, 2500);
   }

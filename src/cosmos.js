@@ -248,6 +248,13 @@ export function makePlanets(urls, renderer) {
   /** Снимок загружен и уже на видеокарте: только тогда планета может выходить в кадр. */
   const ready = (i) => i < 0 || !!cache[i]?.image;
 
+  /** Освобождает видеопамять: оставляет только планеты из набора keep. Ещё грузящиеся снимки не трогаем (их выселит следующий вызов). */
+  function trim(keep) {
+    cache.forEach((t, i) => {
+      if (t && t.image && !keep.has(i)) { t.dispose(); cache[i] = null; }
+    });
+  }
+
   const geometry = new THREE.PlaneGeometry(1, 1);
   function slot() {
     const uniforms = { uMap: { value: blank }, uAlpha: { value: 0 }, uGain: { value: 0.66 } };
@@ -273,7 +280,7 @@ export function makePlanets(urls, renderer) {
   }
   const cur = slot();
   const next = slot();
-  return { cur, next, get, ready, blank };
+  return { cur, next, get, ready, trim, blank };
 }
 
 /* ── звезда-солнце: ядро с грануляцией и мягкая корона ────────────── */
